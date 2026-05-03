@@ -1,0 +1,22 @@
+# Firebase 서비스 계정 키 (절대 커밋 금지)
+collector/firebase-key.json
+collector/*.json
+collector/.env
+
+# 대시보드 환경변수
+dashboard/.env.local
+dashboard/.env*.local
+
+# 빌드
+dashboard/.next/
+dashboard/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# 로그
+*.log
+scheduler.log

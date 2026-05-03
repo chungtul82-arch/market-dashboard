@@ -1,0 +1,7 @@
+yfinance
+pykrx
+pandas
+firebase-admin
+APScheduler
+requests
+python-dotenv

@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* #0f0f1a = hsl(240, 37%, 9%) */
+    --background:        240 37% 9%;
+    --foreground:        240 10% 94%;
+    /* #1a1a2e = hsl(240, 34%, 14%) */
+    --card:              240 34% 14%;
+    --card-foreground:   240 10% 94%;
+    --border:            240 25% 20%;
+    --input:             240 25% 20%;
+    --muted:             240 25% 18%;
+    --muted-foreground:  240 10% 55%;
+    /* indigo accent */
+    --primary:           246 87% 65%;
+    --primary-foreground: 0 0% 100%;
+    --accent:            246 87% 65%;
+    --accent-foreground: 0 0% 100%;
+    --ring:              246 87% 65%;
+    --radius:            0.75rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    font-family: var(--font-noto), var(--font-inter), sans-serif;
+  }
+  /* 숫자는 Inter 폰트 */
+  .font-num { font-family: var(--font-inter), monospace; }
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: hsl(240 37% 9%); }
+::-webkit-scrollbar-thumb { background: hsl(240 25% 22%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(240 25% 30%); }
