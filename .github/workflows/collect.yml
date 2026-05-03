@@ -27,8 +27,8 @@ jobs:
 
       - name: Firebase 키 파일 생성
         env:
-          FIREBASE_KEY_JSON: ${{ secrets.FIREBASE_KEY_JSON }}
-        run: python3 -c "import os; open('collector/firebase-key.json','w').write(os.environ['FIREBASE_KEY_JSON'])"
+          FIREBASE_KEY_BASE64: ${{ secrets.FIREBASE_KEY_BASE64 }}
+        run: echo "$FIREBASE_KEY_BASE64" | base64 --decode > collector/firebase-key.json
 
       - name: 데이터 수집 및 Firebase 업로드
         env:
