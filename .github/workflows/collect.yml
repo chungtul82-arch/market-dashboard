@@ -26,7 +26,9 @@ jobs:
         run: pip install -r collector/requirements.txt
 
       - name: Firebase 키 파일 생성
-        run: echo '${{ secrets.FIREBASE_KEY_JSON }}' > collector/firebase-key.json
+        env:
+          FIREBASE_KEY_JSON: ${{ secrets.FIREBASE_KEY_JSON }}
+        run: python3 -c "import os; open('collector/firebase-key.json','w').write(os.environ['FIREBASE_KEY_JSON'])"
 
       - name: 데이터 수집 및 Firebase 업로드
         env:
