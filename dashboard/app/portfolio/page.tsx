@@ -31,9 +31,10 @@ export default function PortfolioPage() {
     });
   }, []);
 
-  // 선택된 포트폴리오 구독
+  // 선택된 포트폴리오 구독 — 전환 시 이전 데이터 즉시 초기화
   useEffect(() => {
     if (!selectedId) return;
+    setPortfolio(null);   // 이전 포트폴리오 즉시 지우기
     setLoading(true);
     const unsub = subscribePortfolio(selectedId, p => {
       setPortfolio(p);
