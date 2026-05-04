@@ -1,5 +1,7 @@
 import math
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -30,7 +32,7 @@ def build_report_data(
     market_indices: dict | None = None,
 ) -> dict:
     """분석 결과 → Firestore 업로드용 dict."""
-    today = datetime.today().strftime("%Y-%m-%d")
+    today = datetime.now(KST).strftime("%Y-%m-%d")
 
     sectors: dict[str, dict] = {}
     for sector in rs_df.index:

@@ -48,6 +48,8 @@ export interface Snapshot {
 
 export interface Holding {
   symbol: string;
+  name?: string;
+  sector?: string;
   currentPrice: number;
   avgPurchasePrice: number;
   quantity: number;
@@ -60,11 +62,22 @@ export interface Holding {
 }
 
 export interface Portfolio {
+  id?: string;
+  name: string;
   holdings: Holding[];
   totalCurrentValue: number;
   totalInvested: number;
   totalPnl: number;
   totalReturnPct: number;
   uploadedAt: string;
+  createdAt?: string;
   pricesUpdatedAt?: string;
+}
+
+export interface PortfolioMeta {
+  id: string;
+  name: string;
+  createdAt: string;
+  totalCurrentValue: number;
+  totalReturnPct: number;
 }

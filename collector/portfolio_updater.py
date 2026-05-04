@@ -1,6 +1,8 @@
 """Firebase 포트폴리오 가격 일일 업데이트."""
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 
 import yfinance as yf
 
@@ -62,7 +64,7 @@ def update_portfolio_prices(db) -> bool:
             "totalInvested":     total_inv,
             "totalPnl":          total_pnl,
             "totalReturnPct":    total_ret,
-            "pricesUpdatedAt":   datetime.today().isoformat(),
+            "pricesUpdatedAt":   datetime.now(KST).isoformat(),
         })
         print(f"  [OK] 포트폴리오 가격 업데이트 완료 (총평가: {total_cur:,.0f}원)")
         return True

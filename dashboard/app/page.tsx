@@ -10,7 +10,7 @@ import { HeatmapTable, HeatmapSkeleton }       from '@/components/HeatmapTable';
 import { RotationSignals, SignalsSkeleton }     from '@/components/RotationSignals';
 import { SectorChart, ChartSkeleton }          from '@/components/SectorChart';
 import { Skeleton }                             from '@/components/ui/skeleton';
-import { subscribePortfolio }                   from '@/lib/portfolioFirebase';
+import { subscribeAllPortfolios }               from '@/lib/portfolioFirebase';
 import type { Snapshot, Portfolio }             from '@/types';
 
 function fmtKRW(v: number) {
@@ -85,7 +85,10 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    return subscribePortfolio(setPortfolio);
+    // 첫 번째 포트폴리오만 메인 위젯에 표시
+    return subscribeAllPortfolios((list) => {
+      setPortfolio(list.sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))[0] ?? null);
+    });
   }, []);
 
   if (error && !snapshot) {
