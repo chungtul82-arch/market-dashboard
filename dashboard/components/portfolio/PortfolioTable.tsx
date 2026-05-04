@@ -16,10 +16,85 @@ type SortKey = 'currentValue' | 'returnPct' | 'pnl' | 'dailyChangePct';
 const ALL_SECTORS = [
   'AI·반도체', '소부장', '전력·전기', '원자력', '방산', '중공업·조선',
   '재건·인프라', '바이오', '2차전지', '로봇·자동화', '게임·엔터', 'K-뷰티',
-  '자동차·모빌리티', '금융·은행', '증권·보험', '철강·금속', '화학',
+  '자동차·모빌리티', '금융·은행', '증권·보험', '철강·금속', '화학', '원자재',
   '헬스케어·의료', '음식료', '유통·소비재', '수소·친환경', '태양광·풍력',
   '코스피200', '코스닥150', '기타',
 ];
+
+const COUNTRIES = [
+  { code: '한국', flag: '🇰🇷' },
+  { code: '미국', flag: '🇺🇸' },
+  { code: '중국', flag: '🇨🇳' },
+  { code: '일본', flag: '🇯🇵' },
+  { code: '기타', flag: '🌐' },
+];
+
+// ── 국가 선택기 ───────────────────────────────────────
+function CountryPicker({
+  symbol, country, onSave,
+}: {
+  symbol: string;
+  country?: string;
+  onSave: (symbol: string, country: string) => Promise<void>;
+}) {
+  const [open,   setOpen]   = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  async function handleSelect(c: string) {
+    setSaving(true);
+    setOpen(false);
+    await onSave(symbol, c);
+    setSaving(false);
+  }
+
+  const current = COUNTRIES.find(c => c.code === country);
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          'flex items-center gap-1 text-sm px-1.5 py-0.5 rounded border transition-colors',
+          saving
+            ? 'border-[#6366f1]/30 bg-[#6366f1]/10'
+            : current
+              ? 'border-border hover:border-[#6366f1]/50'
+              : 'border-dashed border-muted-foreground/30 hover:border-[#6366f1]/50',
+        )}
+        title="국가 설정"
+      >
+        {saving ? '⏳' : (current ? current.flag : '🌐')}
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 bg-card border border-border rounded-xl shadow-xl w-28 overflow-hidden">
+          {COUNTRIES.map(c => (
+            <button
+              key={c.code}
+              className={cn(
+                'w-full text-left px-3 py-1.5 text-xs hover:bg-muted/60 transition-colors flex items-center gap-2',
+                c.code === country ? 'text-[#6366f1] font-semibold' : 'text-foreground',
+              )}
+              onClick={() => handleSelect(c.code)}
+            >
+              {c.flag} {c.code}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function fmtKRW(v: number) {
   if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(2)}억`;
@@ -138,6 +213,7 @@ export function PortfolioTable({ holdings, onUpdateHolding }: Props) {
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">종목명</th>
+              <th className="text-center py-2 px-2 text-muted-foreground font-medium">국가</th>
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">섹터</th>
               <th className="text-right py-2 px-3 text-muted-foreground font-medium">현재가</th>
               <th className="text-right py-2 px-3 text-muted-foreground font-medium">평균단가</th>
@@ -164,6 +240,15 @@ export function PortfolioTable({ holdings, onUpdateHolding }: Props) {
                   <td className="py-2 px-3">
                     <p className="font-medium text-foreground">{h.name || h.symbol}</p>
                     <p className="text-xs text-muted-foreground font-num">{h.symbol}</p>
+                  </td>
+
+                  {/* 국가 */}
+                  <td className="py-2 px-2 text-center">
+                    <CountryPicker
+                      symbol={h.symbol}
+                      country={h.country}
+                      onSave={(sym, country) => onUpdateHolding(sym, { country })}
+                    />
                   </td>
 
                   {/* 섹터 — 인라인 선택기 */}

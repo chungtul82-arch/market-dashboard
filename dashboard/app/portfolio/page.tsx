@@ -9,6 +9,7 @@ import { PortfolioSummary }        from '@/components/portfolio/PortfolioSummary
 import { PortfolioTable }          from '@/components/portfolio/PortfolioTable';
 import { AllocationChart }         from '@/components/portfolio/AllocationChart';
 import { SectorAllocationChart }   from '@/components/portfolio/SectorAllocationChart';
+import { CountryAllocationChart }  from '@/components/portfolio/CountryAllocationChart';
 import { PortfolioUpload }         from '@/components/portfolio/PortfolioUpload';
 import {
   listPortfolios, subscribePortfolio, updateHolding, createPortfolio,
@@ -132,10 +133,11 @@ export default function PortfolioPage() {
           <>
             <PortfolioSummary portfolio={portfolio} />
 
-            {/* 차트 2개 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* 차트 3개 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <AllocationChart       holdings={portfolio.holdings} />
               <SectorAllocationChart holdings={portfolio.holdings} />
+              <CountryAllocationChart holdings={portfolio.holdings} />
             </div>
 
             {/* 종목 테이블 */}

@@ -50,6 +50,7 @@ export interface Holding {
   symbol: string;
   name?: string;
   sector?: string;
+  country?: string;   // 미국 | 한국 | 중국 | 일본 | 기타
   currentPrice: number;
   avgPurchasePrice: number;
   quantity: number;

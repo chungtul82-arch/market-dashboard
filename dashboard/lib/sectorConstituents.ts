@@ -229,6 +229,18 @@ export const SECTOR_CONSTITUENTS: Record<string, Constituent[]> = {
     { name: '마녀공장',      symbol: '439090.KQ', weight: 4.2  },
     { name: '에이피알',      symbol: '388790.KQ', weight: 3.8  },
   ],
+  '원자재': [
+    { name: 'POSCO홀딩스',    symbol: '005490.KS', weight: 22.0 },
+    { name: '고려아연',        symbol: '010130.KS', weight: 14.5 },
+    { name: 'S-Oil',           symbol: '010950.KS', weight: 11.0 },
+    { name: 'OCI홀딩스',       symbol: '010060.KS', weight: 9.0  },
+    { name: '롯데케미칼',      symbol: '011170.KS', weight: 8.5  },
+    { name: '금호석유',        symbol: '011780.KS', weight: 7.5  },
+    { name: '영풍',            symbol: '000670.KS', weight: 6.0  },
+    { name: '풍산',            symbol: '103140.KS', weight: 5.5  },
+    { name: 'GS',              symbol: '078930.KS', weight: 4.5  },
+    { name: '황금에스티',      symbol: '032560.KQ', weight: 3.5  },
+  ],
   '코스피200': [
     { name: '삼성전자',       symbol: '005930.KS', weight: 28.5 },
     { name: 'SK하이닉스',     symbol: '000660.KS', weight: 8.3  },
