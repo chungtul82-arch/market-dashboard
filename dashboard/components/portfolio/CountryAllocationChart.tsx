@@ -2,8 +2,9 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { Holding } from '@/types';
+import { toKRW, type ExchangeRates } from '@/lib/useExchangeRates';
 
-interface Props { holdings: Holding[] }
+interface Props { holdings: Holding[]; rates: ExchangeRates }
 
 const COUNTRY_CONFIG: Record<string, { color: string; flag: string }> = {
   '한국': { color: '#6366f1', flag: '🇰🇷' },
@@ -35,11 +36,12 @@ const CustomTooltip = ({ active, payload }: {
   );
 };
 
-export function CountryAllocationChart({ holdings }: Props) {
+export function CountryAllocationChart({ holdings, rates }: Props) {
   const countryMap = new Map<string, number>();
   holdings.forEach(h => {
     const country = h.country || '기타';
-    countryMap.set(country, (countryMap.get(country) ?? 0) + h.currentValue);
+    const krwVal  = toKRW(h.currentValue, h.currency, rates);
+    countryMap.set(country, (countryMap.get(country) ?? 0) + krwVal);
   });
 
   const total = Array.from(countryMap.values()).reduce((s, v) => s + v, 0);

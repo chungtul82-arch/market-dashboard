@@ -11,6 +11,7 @@ _INDEX_TICKERS = {
     "kosdaq":  "^KQ11",
     "vix":     "^VIX",
     "usd_krw": "USDKRW=X",
+    "cny_krw": "CNYKRW=X",   # 위안화/원화
 }
 
 

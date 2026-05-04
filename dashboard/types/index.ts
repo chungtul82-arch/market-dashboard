@@ -35,6 +35,7 @@ export interface MarketIndices {
   kosdaq?:  MarketIndex;
   vix?:     MarketIndex;
   usd_krw?: MarketIndex;
+  cny_krw?: MarketIndex;
 }
 
 export interface Snapshot {
@@ -50,7 +51,8 @@ export interface Holding {
   symbol: string;
   name?: string;
   sector?: string;
-  country?: string;   // 미국 | 한국 | 중국 | 일본 | 기타
+  country?: string;    // 미국 | 한국 | 중국 | 일본 | 기타
+  currency?: 'KRW' | 'USD' | 'RMB';  // 거래 통화
   currentPrice: number;
   avgPurchasePrice: number;
   quantity: number;

@@ -3,7 +3,8 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { Holding } from '@/types';
 
-interface Props { holdings: Holding[] }
+import { toKRW, type ExchangeRates } from '@/lib/useExchangeRates';
+interface Props { holdings: Holding[]; rates: ExchangeRates }
 
 const COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
 
@@ -26,14 +27,17 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
   );
 };
 
-export function AllocationChart({ holdings }: Props) {
-  const total = holdings.reduce((s, h) => s + h.currentValue, 0);
-  const data  = holdings.map(h => ({
-    name:   h.name || h.symbol,   // 종목명 우선, 없으면 티커
-    symbol: h.symbol,
-    value:  Math.round(h.currentValue),
-    pct:    total > 0 ? (h.currentValue / total) * 100 : 0,
-  }));
+export function AllocationChart({ holdings, rates }: Props) {
+  const total = holdings.reduce((s, h) => s + toKRW(h.currentValue, h.currency, rates), 0);
+  const data  = holdings.map(h => {
+    const krwVal = toKRW(h.currentValue, h.currency, rates);
+    return {
+      name:   h.name || h.symbol,
+      symbol: h.symbol,
+      value:  Math.round(krwVal),
+      pct:    total > 0 ? (krwVal / total) * 100 : 0,
+    };
+  });
 
   return (
     <div className="bg-card rounded-xl border border-border p-4">

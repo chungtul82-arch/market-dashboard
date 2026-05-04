@@ -3,8 +3,9 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { Holding } from '@/types';
 import { SYMBOL_TO_SECTOR } from '@/lib/sectorConstituents';
+import { toKRW, type ExchangeRates } from '@/lib/useExchangeRates';
 
-interface Props { holdings: Holding[] }
+interface Props { holdings: Holding[]; rates: ExchangeRates }
 
 const COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16','#a78bfa','#34d399'];
 
@@ -26,15 +27,12 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
   );
 };
 
-export function SectorAllocationChart({ holdings }: Props) {
-  // 종목 심볼로 히트맵 섹터 매핑, 없으면 Yahoo 섹터 사용
+export function SectorAllocationChart({ holdings, rates }: Props) {
   const sectorMap = new Map<string, number>();
   holdings.forEach(h => {
-    const sector =
-      SYMBOL_TO_SECTOR[h.symbol] ||   // 히트맵 섹터 우선
-      h.sector ||                       // Yahoo 섹터 폴백
-      '기타';
-    sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + h.currentValue);
+    const sector = SYMBOL_TO_SECTOR[h.symbol] || h.sector || '기타';
+    const krwVal = toKRW(h.currentValue, h.currency, rates);
+    sectorMap.set(sector, (sectorMap.get(sector) ?? 0) + krwVal);
   });
 
   const total = Array.from(sectorMap.values()).reduce((s, v) => s + v, 0);

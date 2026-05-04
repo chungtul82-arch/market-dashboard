@@ -4,16 +4,18 @@ import { useEffect, useState, useCallback } from 'react';
 import { Upload, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PortfolioSelector }       from '@/components/portfolio/PortfolioSelector';
-import { PortfolioSummary }        from '@/components/portfolio/PortfolioSummary';
-import { PortfolioTable }          from '@/components/portfolio/PortfolioTable';
-import { AllocationChart }         from '@/components/portfolio/AllocationChart';
-import { SectorAllocationChart }   from '@/components/portfolio/SectorAllocationChart';
-import { CountryAllocationChart }  from '@/components/portfolio/CountryAllocationChart';
-import { PortfolioUpload }         from '@/components/portfolio/PortfolioUpload';
+import { PortfolioSelector }        from '@/components/portfolio/PortfolioSelector';
+import { PortfolioSummary }         from '@/components/portfolio/PortfolioSummary';
+import { PortfolioTable }           from '@/components/portfolio/PortfolioTable';
+import { AllocationChart }          from '@/components/portfolio/AllocationChart';
+import { SectorAllocationChart }    from '@/components/portfolio/SectorAllocationChart';
+import { CountryAllocationChart }   from '@/components/portfolio/CountryAllocationChart';
+import { CurrencyAllocationChart }  from '@/components/portfolio/CurrencyAllocationChart';
+import { PortfolioUpload }          from '@/components/portfolio/PortfolioUpload';
 import {
   listPortfolios, subscribePortfolio, updateHolding, createPortfolio,
 } from '@/lib/portfolioFirebase';
+import { useExchangeRates } from '@/lib/useExchangeRates';
 import type { Portfolio, PortfolioMeta, Holding } from '@/types';
 
 export default function PortfolioPage() {
@@ -22,8 +24,8 @@ export default function PortfolioPage() {
   const [portfolio,     setPortfolio]     = useState<Portfolio | null>(null);
   const [loading,       setLoading]       = useState(true);
   const [showUpload,    setShowUpload]    = useState(false);
+  const rates = useExchangeRates();
 
-  // 포트폴리오 목록 로드
   useEffect(() => {
     listPortfolios().then(list => {
       setPortfolioList(list);
@@ -32,10 +34,9 @@ export default function PortfolioPage() {
     });
   }, []);
 
-  // 선택된 포트폴리오 구독 — 전환 시 이전 데이터 즉시 초기화
   useEffect(() => {
     if (!selectedId) return;
-    setPortfolio(null);   // 이전 포트폴리오 즉시 지우기
+    setPortfolio(null);
     setLoading(true);
     const unsub = subscribePortfolio(selectedId, p => {
       setPortfolio(p);
@@ -44,15 +45,14 @@ export default function PortfolioPage() {
     return () => unsub();
   }, [selectedId]);
 
-  // 목록 새로고침 (업로드 후)
-  const refreshList = useCallback(async (newSelectedId?: string) => {
+  const refreshList = useCallback(async (newId?: string) => {
     const list = await listPortfolios();
     setPortfolioList(list);
-    if (newSelectedId) setSelectedId(newSelectedId);
+    if (newId) setSelectedId(newId);
   }, []);
 
   async function handleCreateNew() {
-    const name = prompt('새 포트폴리오 이름을 입력하세요:');
+    const name = prompt('새 포트폴리오 이름:');
     if (!name?.trim()) return;
     const id = await createPortfolio(name.trim());
     await refreshList(id);
@@ -76,7 +76,7 @@ export default function PortfolioPage() {
               <PortfolioSelector
                 portfolios={portfolioList}
                 selectedId={selectedId}
-                onSelect={id => setSelectedId(id)}
+                onSelect={setSelectedId}
                 onCreateNew={handleCreateNew}
               />
             )}
@@ -93,7 +93,6 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        {/* 업로드 패널 */}
         {showUpload && (
           <PortfolioUpload
             portfolios={portfolioList}
@@ -102,7 +101,6 @@ export default function PortfolioPage() {
           />
         )}
 
-        {/* 데이터 없음 */}
         {!loading && !portfolio && !showUpload && (
           <div className="bg-card rounded-xl border border-border p-12 text-center space-y-4">
             <p className="text-4xl">📂</p>
@@ -114,42 +112,42 @@ export default function PortfolioPage() {
           </div>
         )}
 
-        {/* 로딩 */}
         {loading && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <Skeleton className="h-80 rounded-xl" />
-              <Skeleton className="h-80 rounded-xl" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
             </div>
             <Skeleton className="h-64 rounded-xl" />
           </div>
         )}
 
-        {/* 포트폴리오 데이터 */}
         {!loading && portfolio && (
           <>
-            <PortfolioSummary portfolio={portfolio} />
+            {/* 요약 카드 (환율 반영) */}
+            <PortfolioSummary portfolio={portfolio} rates={rates} />
 
-            {/* 차트 3개 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <AllocationChart       holdings={portfolio.holdings} />
-              <SectorAllocationChart holdings={portfolio.holdings} />
-              <CountryAllocationChart holdings={portfolio.holdings} />
+            {/* 차트 4개 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <AllocationChart       holdings={portfolio.holdings} rates={rates} />
+              <SectorAllocationChart holdings={portfolio.holdings} rates={rates} />
+              <CountryAllocationChart holdings={portfolio.holdings} rates={rates} />
+              <CurrencyAllocationChart holdings={portfolio.holdings} rates={rates} />
             </div>
 
             {/* 종목 테이블 */}
             <PortfolioTable
               holdings={portfolio.holdings}
+              rates={rates}
               onUpdateHolding={handleUpdateHolding}
             />
           </>
         )}
 
         <p className="text-center text-xs text-muted-foreground/40 pb-4">
-          가격은 GitHub Actions가 매일 08:00 자동 업데이트
+          환율 기준: reports/latest · 가격 매일 08:00 자동 업데이트
         </p>
       </div>
     </main>
