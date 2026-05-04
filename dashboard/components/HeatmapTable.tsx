@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Skeleton } from '@/components/ui/skeleton';
 import type { SectorData, Signal } from '@/types';
 import { getReturnColor, getRsColor, fmt, cn, foreignIcon } from '@/lib/utils';
+import { SECTOR_CONSTITUENTS } from '@/lib/sectorConstituents';
 
 interface Props {
   sectors: Record<string, SectorData>;
@@ -132,8 +133,46 @@ function SectorModal({
   );
 }
 
+function ConstituentModal({ sector, open, onClose }: { sector: string; open: boolean; onClose: () => void }) {
+  const stocks = SECTOR_CONSTITUENTS[sector] ?? [];
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border text-foreground max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold">{sector} — 주요 구성종목</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground -mt-2 mb-2">ETF 기준 추정 비중 (참고용)</p>
+        {stocks.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-4">구성종목 정보 없음</p>
+        ) : (
+          <div className="space-y-2">
+            {stocks.map((s, i) => (
+              <div key={s.symbol} className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-sm font-medium text-foreground">{s.name}</span>
+                    <span className="text-xs font-num text-[#6366f1]">{s.weight.toFixed(1)}%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-muted rounded-full h-1">
+                      <div className="h-1 rounded-full bg-[#6366f1]/70" style={{ width: `${Math.min(s.weight * 2.5, 100)}%` }} />
+                    </div>
+                    <span className="text-xs text-muted-foreground/60">{s.symbol}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function HeatmapTable({ sectors, signals }: Props) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected,    setSelected]    = useState<string | null>(null);
+  const [constituent, setConstituent] = useState<string | null>(null);
 
   const signalMap = new Map<string, Signal[]>();
   signals.forEach((sig) => {
@@ -148,7 +187,7 @@ export function HeatmapTable({ sectors, signals }: Props) {
       <div className="bg-card rounded-xl border border-border p-4 overflow-x-auto">
         <h2 className="text-sm font-semibold text-muted-foreground mb-4">
           섹터 수익률 히트맵
-          <span className="ml-2 text-xs text-muted-foreground/60">행 클릭 → 상세 보기</span>
+          <span className="ml-2 text-xs text-muted-foreground/60">섹터명 클릭 → 구성종목 · 행 클릭 → RS 상세</span>
         </h2>
 
         <table className="w-full border-collapse text-sm">
@@ -179,7 +218,12 @@ export function HeatmapTable({ sectors, signals }: Props) {
                   {/* 섹터명 + 신호 뱃지 */}
                   <td className="py-2 px-3">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-foreground font-medium whitespace-nowrap">{name}</span>
+                      <button
+                        className="text-foreground font-medium whitespace-nowrap text-left hover:text-[#6366f1] hover:underline transition-colors"
+                        onClick={e => { e.stopPropagation(); setConstituent(name); }}
+                      >
+                        {name}
+                      </button>
                       {topSig && (
                         <Badge variant={SIGNAL_BADGE[topSig.signal]?.variant} className="w-fit text-[10px] px-1.5 py-0">
                           {SIGNAL_BADGE[topSig.signal]?.label}
@@ -228,6 +272,12 @@ export function HeatmapTable({ sectors, signals }: Props) {
           onClose={() => setSelected(null)}
         />
       )}
+
+      <ConstituentModal
+        sector={constituent ?? ''}
+        open={!!constituent}
+        onClose={() => setConstituent(null)}
+      />
     </>
   );
 }
