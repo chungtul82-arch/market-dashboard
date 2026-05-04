@@ -45,3 +45,26 @@ export interface Snapshot {
   signals: Signal[];
   summary?: Summary;
 }
+
+export interface Holding {
+  symbol: string;
+  currentPrice: number;
+  avgPurchasePrice: number;
+  quantity: number;
+  currentValue: number;
+  investedValue: number;
+  pnl: number;
+  returnPct: number;
+  dailyChange: number;
+  dailyChangePct: number;
+}
+
+export interface Portfolio {
+  holdings: Holding[];
+  totalCurrentValue: number;
+  totalInvested: number;
+  totalPnl: number;
+  totalReturnPct: number;
+  uploadedAt: string;
+  pricesUpdatedAt?: string;
+}

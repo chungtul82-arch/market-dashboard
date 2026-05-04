@@ -2,14 +2,44 @@
 
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { MarketSummary }                       from '@/components/MarketSummary';
 import { HeatmapTable, HeatmapSkeleton }       from '@/components/HeatmapTable';
 import { RotationSignals, SignalsSkeleton }     from '@/components/RotationSignals';
 import { SectorChart, ChartSkeleton }          from '@/components/SectorChart';
 import { Skeleton }                             from '@/components/ui/skeleton';
-import type { Snapshot }                        from '@/types';
+import { subscribePortfolio }                   from '@/lib/portfolioFirebase';
+import type { Snapshot, Portfolio }             from '@/types';
+
+function fmtKRW(v: number) {
+  if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(1)}억`;
+  if (Math.abs(v) >= 1e4) return `${(v / 1e4).toFixed(0)}만`;
+  return v.toLocaleString();
+}
+
+function PortfolioWidget({ portfolio }: { portfolio: Portfolio }) {
+  const positive = portfolio.totalPnl >= 0;
+  const Icon = positive ? TrendingUp : TrendingDown;
+  return (
+    <Link href="/portfolio">
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-[#6366f1]/50 transition-colors cursor-pointer">
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">내 포트폴리오</p>
+          <p className="text-lg font-bold font-num text-foreground">{fmtKRW(portfolio.totalCurrentValue)}원</p>
+          <p className={`text-sm font-num font-semibold ${positive ? 'text-up' : 'text-down'}`}>
+            {positive ? '+' : ''}{fmtKRW(portfolio.totalPnl)}원 ({positive ? '+' : ''}{portfolio.totalReturnPct.toFixed(2)}%)
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Icon className={`w-6 h-6 ${positive ? 'text-up' : 'text-down'}`} />
+          <span className="text-xs text-muted-foreground">{portfolio.holdings.length}개 종목 →</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 function MarketSummarySkeleton() {
   return (
@@ -27,10 +57,11 @@ function MarketSummarySkeleton() {
 }
 
 export default function Page() {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState<string | null>(null);
-  const [lastSeen, setLastSeen] = useState<string>('');
+  const [snapshot,  setSnapshot]  = useState<Snapshot | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [lastSeen,  setLastSeen]  = useState<string>('');
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -51,6 +82,10 @@ export default function Page() {
       },
     );
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    return subscribePortfolio(setPortfolio);
   }, []);
 
   if (error && !snapshot) {
@@ -82,6 +117,9 @@ export default function Page() {
             {loading ? '연결 중…' : `${lastSeen} 업데이트`}
           </div>
         </div>
+
+        {/* ── 포트폴리오 미니 위젯 ── */}
+        {portfolio && <PortfolioWidget portfolio={portfolio} />}
 
         {/* ── 시황 요약 (4개 카드) ── */}
         {loading

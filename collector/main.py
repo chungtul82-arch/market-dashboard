@@ -13,7 +13,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from config import SECTOR_ETFS
 from collector import get_sector_data, get_foreign_net_buy, get_market_indices
 from analyzer import calc_returns, calc_relative_strength, detect_rotation_signal
-from firebase_uploader import build_report_data, upload_report
+from firebase_uploader import build_report_data, upload_report, _init as firebase_init
+from firebase_admin import firestore
+from portfolio_updater import update_portfolio_prices
 from telegram_bot import send_daily_notification, send_text
 
 
@@ -41,6 +43,11 @@ def run() -> None:
         report_data = build_report_data(rs_df, signals, foreign_data=foreign, market_indices=indices)
         if not upload_report(report_data):
             raise RuntimeError("Firebase 업로드 실패")
+
+        print("[+] 포트폴리오 가격 업데이트...")
+        firebase_init()
+        update_portfolio_prices(firestore.client())
+
         send_daily_notification(report_data)
 
         print("=== 완료 ===")
