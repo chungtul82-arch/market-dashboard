@@ -1,7 +1,8 @@
 """전체 파이프라인 진입점.
 사용법:
-  python main.py         # 일반 실행
-  python main.py --now   # 즉시 실행 (테스트용, --now 플래그 동일)
+  python main.py                # 일반 실행
+  python main.py --now          # 즉시 실행 (테스트용)
+  python main.py --screener-only  # 스크리너만 실행
 """
 import sys
 import os
@@ -17,6 +18,24 @@ from firebase_uploader import build_report_data, upload_report, _init as firebas
 from firebase_admin import firestore
 from portfolio_updater import update_portfolio_prices
 from telegram_bot import send_daily_notification, send_text
+
+
+def run_screener_only() -> None:
+    print("=== 스크리너 단독 실행 ===")
+    try:
+        firebase_init()
+        db = firestore.client()
+        from screener import run_screener
+        results = run_screener(db)
+        print(f"=== 스크리너 완료: {len(results)}개 ===")
+    except Exception:
+        err = traceback.format_exc()
+        print(f"[ERROR]\n{err}")
+        try:
+            send_text(f"⚠️ 스크리너 오류\n<code>{err[-600:]}</code>")
+        except Exception:
+            pass
+        sys.exit(1)
 
 
 def run() -> None:
@@ -46,7 +65,15 @@ def run() -> None:
 
         print("[+] 포트폴리오 가격 업데이트...")
         firebase_init()
-        update_portfolio_prices(firestore.client())
+        db = firestore.client()
+        update_portfolio_prices(db)
+
+        print("[+] 주도주 스크리너 실행...")
+        try:
+            from screener import run_screener
+            run_screener(db)
+        except Exception:
+            print(f"  [WARN] 스크리너 실패 (파이프라인 계속)\n{traceback.format_exc()}")
 
         send_daily_notification(report_data)
 
@@ -65,5 +92,10 @@ def run() -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--now", action="store_true", help="즉시 실행")
+    parser.add_argument("--screener-only", action="store_true", help="스크리너만 실행")
     args = parser.parse_args()
-    run()
+
+    if args.screener_only:
+        run_screener_only()
+    else:
+        run()
