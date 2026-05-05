@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { SectorData, Signal } from '@/types';
 import { getReturnColor, getRsColor, fmt, cn, foreignIcon } from '@/lib/utils';
 import { SECTOR_CONSTITUENTS } from '@/lib/sectorConstituents';
+import { SECTOR_ETFS, ETF_NAMES } from '@/lib/sectorEtfs';
 
 interface Props {
   sectors: Record<string, SectorData>;
@@ -27,6 +28,7 @@ const SIGNAL_BADGE: Record<SignalType, { label: string; variant: 'success' | 'wa
   '강세 진입': { label: '강세',    variant: 'success'     },
   '이탈 경고': { label: '이탈',    variant: 'warning'     },
   '단기 과열': { label: '과열',    variant: 'destructive' },
+  '저점 반등': { label: '반등',    variant: 'success'     },
 };
 
 function ReturnCell({ value }: { value: number | undefined }) {
@@ -103,6 +105,20 @@ function SectorModal({
             </div>
           ))}
         </div>
+
+        {/* 참조 ETF */}
+        {SECTOR_ETFS[sector] && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">참조 ETF</p>
+            <div className="flex flex-wrap gap-1">
+              {SECTOR_ETFS[sector].map(ticker => (
+                <span key={ticker} className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+                  {ETF_NAMES[ticker] ?? ticker}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 외국인 순매수 */}
         {data.foreign_net_buy !== undefined && (

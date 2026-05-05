@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/',          label: '📊 시장 대시보드' },
   { href: '/portfolio', label: '💼 포트폴리오'     },
   { href: '/spot',      label: '🔍 스팟 시황'      },
+  { href: '/screener',  label: '🎯 주도주 스크리너' },
 ];
 
 export function NavBar() {

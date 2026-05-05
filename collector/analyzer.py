@@ -39,27 +39,54 @@ def calc_relative_strength(returns_df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values("rs_score", ascending=False)
 
 
-def detect_rotation_signal(returns_df: pd.DataFrame) -> list[dict]:
+def detect_rotation_signal(
+    rs_df: pd.DataFrame,
+    prev_rs_df: pd.DataFrame | None = None,
+) -> list[dict]:
+    """
+    개선된 신호 감지:
+      강세 진입: RS ≥ 60 AND 5일간 RS +10 이상 상승 (모멘텀 가속)
+      이탈 경고: 직전 RS ≥ 60 이었으나 5일간 -15 이하 급락
+      저점 반등: RS < 40 AND 5일간 RS +5 이상 개선
+      단기 과열: 5일 수익률이 전체 섹터 평균 +1.5σ 초과 (Z-score)
+    prev_rs_df 없으면 절대값 기준 fallback 적용.
+    """
     signals: list[dict] = []
-    df = returns_df.dropna(subset=["return_5d", "return_20d"])
+    df = rs_df.dropna(subset=["return_5d", "return_20d", "rs_score"])
     if df.empty:
         return signals
 
-    n = len(df)
-    rank_5d  = df["return_5d"].rank(ascending=False)
-    rank_20d = df["return_20d"].rank(ascending=False)
-    threshold = max(1, int(n * 0.4))
+    has_prev = prev_rs_df is not None and not prev_rs_df.empty
 
-    for sector, val in df["return_5d"].nlargest(3).items():
-        signals.append({"sector": sector, "signal": "강세 진입", "value": val})
-
-    for sector in df.index:
-        if rank_20d[sector] <= threshold and rank_5d[sector] > (n - threshold):
-            signals.append({"sector": sector, "signal": "이탈 경고", "value": df.loc[sector, "return_5d"]})
+    # Z-score 기반 단기 과열 — 전체 섹터 평균·표준편차 사용
+    ret5_vals = df["return_5d"].dropna()
+    mean5 = float(ret5_vals.mean())
+    std5  = float(ret5_vals.std()) if len(ret5_vals) > 1 else 0.0
 
     for sector in df.index:
-        val = df.loc[sector, "return_5d"]
-        if val >= 0.05:
-            signals.append({"sector": sector, "signal": "단기 과열", "value": val})
+        rs_now = float(df.loc[sector, "rs_score"])
+        ret5   = float(df.loc[sector, "return_5d"])
+        ret20  = float(df.loc[sector, "return_20d"])
+
+        if has_prev and sector in prev_rs_df.index:
+            rs_prev = float(prev_rs_df.loc[sector, "rs_score"])
+            delta   = rs_now - rs_prev
+
+            if rs_now >= 60 and delta >= 10:
+                signals.append({"sector": sector, "signal": "강세 진입", "value": ret5})
+            elif rs_prev >= 60 and delta <= -15:
+                signals.append({"sector": sector, "signal": "이탈 경고", "value": ret5})
+            elif rs_now < 40 and delta >= 5:
+                signals.append({"sector": sector, "signal": "저점 반등", "value": ret5})
+        else:
+            # prev 없을 때 절대값 기준 fallback
+            if rs_now >= 70:
+                signals.append({"sector": sector, "signal": "강세 진입", "value": ret5})
+            elif rs_now < 40 and ret20 > 0 and ret5 < 0:
+                signals.append({"sector": sector, "signal": "이탈 경고", "value": ret5})
+
+        # 단기 과열: Z-score > 1.5 (항상 적용)
+        if std5 > 0 and (ret5 - mean5) / std5 > 1.5:
+            signals.append({"sector": sector, "signal": "단기 과열", "value": ret5})
 
     return signals

@@ -1,12 +1,12 @@
 'use client';
 
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Signal } from '@/types';
 import { fmt, cn } from '@/lib/utils';
 
-interface Props {
-  signals: Signal[];
-}
+interface Props { signals: Signal[] }
 
 function Stars({ count }: { count: 1 | 2 | 3 }) {
   return (
@@ -38,33 +38,57 @@ type SignalMeta = {
 
 const SIGNAL_META: Record<Signal['signal'], SignalMeta> = {
   '강세 진입': {
-    icon: '🔥',
-    title: '강세 진입',
-    desc: (v) => `5일 수익률 ${fmt(v)} — 상위권 편입`,
-    border: 'border-green-500/30',
-    bg: 'bg-green-950/40',
-    textColor: 'text-green-400',
-    badgeBg: 'bg-green-500/15 text-green-300',
+    icon: '🔥', title: '강세 진입',
+    desc: (v) => `5일 수익률 ${fmt(v)} — RS ≥60 + 모멘텀 가속`,
+    border: 'border-green-500/30', bg: 'bg-green-950/40',
+    textColor: 'text-green-400', badgeBg: 'bg-green-500/15 text-green-300',
   },
   '이탈 경고': {
-    icon: '⚠️',
-    title: '이탈 경고',
-    desc: (v) => `5일 ${fmt(v)} — 중기 강세 대비 단기 이탈`,
-    border: 'border-yellow-500/30',
-    bg: 'bg-yellow-950/40',
-    textColor: 'text-yellow-400',
-    badgeBg: 'bg-yellow-500/15 text-yellow-300',
+    icon: '⚠️', title: '이탈 경고',
+    desc: (v) => `5일 ${fmt(v)} — 중기 강세 대비 단기 급락`,
+    border: 'border-yellow-500/30', bg: 'bg-yellow-950/40',
+    textColor: 'text-yellow-400', badgeBg: 'bg-yellow-500/15 text-yellow-300',
   },
   '단기 과열': {
-    icon: '🚨',
-    title: '단기 과열',
-    desc: (v) => `5일 ${fmt(v)} — +5% 초과 급등 주의`,
-    border: 'border-red-500/30',
-    bg: 'bg-red-950/40',
-    textColor: 'text-red-400',
-    badgeBg: 'bg-red-500/15 text-red-300',
+    icon: '🚨', title: '단기 과열',
+    desc: (v) => `5일 ${fmt(v)} — 전체 섹터 대비 Z-score 1.5σ 초과`,
+    border: 'border-red-500/30', bg: 'bg-red-950/40',
+    textColor: 'text-red-400', badgeBg: 'bg-red-500/15 text-red-300',
+  },
+  '저점 반등': {
+    icon: '📈', title: '저점 반등',
+    desc: (v) => `5일 ${fmt(v)} — RS < 40 구간에서 모멘텀 개선`,
+    border: 'border-blue-500/30', bg: 'bg-blue-950/40',
+    textColor: 'text-blue-400', badgeBg: 'bg-blue-500/15 text-blue-300',
   },
 };
+
+const SIGNAL_ORDER: Signal['signal'][] = ['강세 진입', '저점 반등', '이탈 경고', '단기 과열'];
+
+function CriteriaAccordion() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-border mt-3 pt-2">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors w-full"
+      >
+        <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
+        판단 기준 보기
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1.5 text-xs text-muted-foreground/70 leading-relaxed">
+          <p><span className="text-green-400">🔥 강세 진입</span> — RS ≥ 60 AND 5일간 RS +10 이상 상승 (모멘텀 가속)</p>
+          <p><span className="text-yellow-400">⚠️ 이탈 경고</span> — 직전 RS ≥ 60이었으나 5일간 -15 이하 급락</p>
+          <p><span className="text-red-400">🚨 단기 과열</span> — 5일 수익률이 전체 섹터 평균 대비 +1.5σ 초과 (Z-score)</p>
+          <p><span className="text-blue-400">📈 저점 반등</span> — RS {'<'} 40 약세 구간에서 5일간 RS +5 이상 개선</p>
+          <p className="pt-1 border-t border-border/50">RS 점수 = 5일 백분위(50%) + 20일(30%) + 60일(20%) 가중합산</p>
+          <p>섹터 수익률은 구성종목 직접 계산이 아닌 <strong>섹터 ETF 가격 수익률</strong> 기준</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function RotationSignals({ signals }: Props) {
   if (!signals || signals.length === 0) {
@@ -72,11 +96,12 @@ export function RotationSignals({ signals }: Props) {
       <div className="bg-card rounded-xl border border-border p-4">
         <h2 className="text-sm font-semibold text-muted-foreground mb-3">순환매 신호</h2>
         <p className="text-muted-foreground/60 text-sm text-center py-4">감지된 신호 없음</p>
+        <CriteriaAccordion />
       </div>
     );
   }
 
-  const grouped = { '강세 진입': [] as Signal[], '이탈 경고': [] as Signal[], '단기 과열': [] as Signal[] };
+  const grouped = Object.fromEntries(SIGNAL_ORDER.map(k => [k, [] as Signal[]])) as Record<Signal['signal'], Signal[]>;
   signals.forEach((sig) => { (grouped[sig.signal] ??= []).push(sig); });
 
   return (
@@ -86,44 +111,34 @@ export function RotationSignals({ signals }: Props) {
         <span className="ml-2 text-xs text-muted-foreground/60">({signals.length}건)</span>
       </h2>
 
-      {(Object.entries(grouped) as [Signal['signal'], Signal[]][]).map(([type, list]) => {
-        if (list.length === 0) return null;
+      {SIGNAL_ORDER.map(type => {
+        const list = grouped[type];
+        if (!list || list.length === 0) return null;
         const meta = SIGNAL_META[type];
         return (
           <div key={type}>
             <p className="text-xs text-muted-foreground/60 mb-1.5 font-medium">{meta.icon} {meta.title}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {list.map((sig, i) => {
-                const strength = getStrength(sig.signal, sig.value);
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      'rounded-lg border p-3 flex items-start gap-3 transition-colors',
-                      meta.border, meta.bg,
-                    )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={cn('font-bold text-sm truncate', meta.textColor)}>
-                          {sig.sector}
-                        </span>
-                        <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0', meta.badgeBg)}>
-                          {fmt(sig.value)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground/70 leading-snug">{meta.desc(sig.value)}</p>
+              {list.map((sig, i) => (
+                <div key={i} className={cn('rounded-lg border p-3 flex items-start gap-3 transition-colors', meta.border, meta.bg)}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn('font-bold text-sm truncate', meta.textColor)}>{sig.sector}</span>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0', meta.badgeBg)}>{fmt(sig.value)}</span>
                     </div>
-                    <div className="shrink-0 pt-0.5">
-                      <Stars count={strength} />
-                    </div>
+                    <p className="text-xs text-muted-foreground/70 leading-snug">{meta.desc(sig.value)}</p>
                   </div>
-                );
-              })}
+                  <div className="shrink-0 pt-0.5">
+                    <Stars count={getStrength(sig.signal, sig.value)} />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         );
       })}
+
+      <CriteriaAccordion />
     </div>
   );
 }
@@ -132,9 +147,7 @@ export function SignalsSkeleton() {
   return (
     <div className="bg-card rounded-xl border border-border p-4 space-y-3">
       <Skeleton className="h-4 w-28" />
-      {[...Array(3)].map((_, i) => (
-        <Skeleton key={i} className="h-20 w-full rounded-lg" />
-      ))}
+      {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 """전체 파이프라인 진입점.
 사용법:
-  python main.py                # 일반 실행
-  python main.py --now          # 즉시 실행 (테스트용)
+  python main.py                  # 일반 실행
+  python main.py --now            # 즉시 실행 (테스트용)
   python main.py --screener-only  # 스크리너만 실행
 """
 import sys
@@ -55,7 +55,17 @@ def run() -> None:
         print("[4/5] 수익률·상대강도 계산 중...")
         returns_df = calc_returns(price_df)
         rs_df      = calc_relative_strength(returns_df)
-        signals    = detect_rotation_signal(returns_df)
+
+        # 5일 전 RS — 신호 모멘텀 감지용
+        prev_rs_df = None
+        if len(price_df) > 7:
+            try:
+                prev_returns = calc_returns(price_df.iloc[:-5])
+                prev_rs_df   = calc_relative_strength(prev_returns)
+            except Exception:
+                pass
+
+        signals = detect_rotation_signal(rs_df, prev_rs_df)
         print(f"      신호 {len(signals)}건 감지")
 
         print("[5/5] Firebase 업로드 + 텔레그램 발송...")
@@ -91,7 +101,7 @@ def run() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--now", action="store_true", help="즉시 실행")
+    parser.add_argument("--now",           action="store_true", help="즉시 실행")
     parser.add_argument("--screener-only", action="store_true", help="스크리너만 실행")
     args = parser.parse_args()
 

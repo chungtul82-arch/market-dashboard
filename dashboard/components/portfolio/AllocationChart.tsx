@@ -2,8 +2,8 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { Holding } from '@/types';
-
 import { toKRW, type ExchangeRates } from '@/lib/useExchangeRates';
+
 interface Props { holdings: Holding[]; rates: ExchangeRates }
 
 const COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
@@ -42,13 +42,18 @@ export function AllocationChart({ holdings, rates }: Props) {
   return (
     <div className="bg-card rounded-xl border border-border p-4">
       <h2 className="text-sm font-semibold text-muted-foreground mb-4">종목별 비중</h2>
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={380}>
         <PieChart>
-          <Pie data={data} cx="50%" cy="45%" innerRadius={70} outerRadius={110} paddingAngle={2} dataKey="value">
+          <Pie data={data} cx="50%" cy="38%" innerRadius={65} outerRadius={105} paddingAngle={2} dataKey="value">
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
-          <Legend formatter={v => <span className="text-xs text-muted-foreground">{v}</span>} />
+          <Legend
+            layout="horizontal"
+            verticalAlign="bottom"
+            align="center"
+            formatter={v => <span className="text-xs text-muted-foreground">{v}</span>}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>

@@ -4,19 +4,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { Upload, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PortfolioSelector }        from '@/components/portfolio/PortfolioSelector';
-import { PortfolioSummary }         from '@/components/portfolio/PortfolioSummary';
-import { PortfolioTable }           from '@/components/portfolio/PortfolioTable';
-import { AllocationChart }          from '@/components/portfolio/AllocationChart';
-import { SectorAllocationChart }    from '@/components/portfolio/SectorAllocationChart';
-import { CountryAllocationChart }   from '@/components/portfolio/CountryAllocationChart';
-import { CurrencyAllocationChart }  from '@/components/portfolio/CurrencyAllocationChart';
-import { PortfolioUpload }          from '@/components/portfolio/PortfolioUpload';
+import { PortfolioSelector }          from '@/components/portfolio/PortfolioSelector';
+import { PortfolioSummary }           from '@/components/portfolio/PortfolioSummary';
+import { PortfolioTable }             from '@/components/portfolio/PortfolioTable';
+import { AllocationChart }            from '@/components/portfolio/AllocationChart';
+import { SectorAllocationChart }      from '@/components/portfolio/SectorAllocationChart';
+import { CountryAllocationChart }     from '@/components/portfolio/CountryAllocationChart';
+import { CurrencyAllocationChart }    from '@/components/portfolio/CurrencyAllocationChart';
+import { PortfolioUpload }            from '@/components/portfolio/PortfolioUpload';
+import { PortfolioRecommendation }    from '@/components/portfolio/PortfolioRecommendation';
 import {
   listPortfolios, subscribePortfolio, updateHolding, createPortfolio,
 } from '@/lib/portfolioFirebase';
 import { useExchangeRates } from '@/lib/useExchangeRates';
 import type { Portfolio, PortfolioMeta, Holding } from '@/types';
+
+type Tab = '현황' | 'AI추천';
 
 export default function PortfolioPage() {
   const [portfolioList, setPortfolioList] = useState<PortfolioMeta[]>([]);
@@ -24,6 +27,7 @@ export default function PortfolioPage() {
   const [portfolio,     setPortfolio]     = useState<Portfolio | null>(null);
   const [loading,       setLoading]       = useState(true);
   const [showUpload,    setShowUpload]    = useState(false);
+  const [activeTab,     setActiveTab]     = useState<Tab>('현황');
   const rates = useExchangeRates();
 
   useEffect(() => {
@@ -63,6 +67,13 @@ export default function PortfolioPage() {
     await updateHolding(selectedId, symbol, updates);
     await refreshList();
   }
+
+  const tabCls = (t: Tab) =>
+    `text-sm px-4 py-2 font-medium transition-colors border-b-2 ${
+      activeTab === t
+        ? 'border-[#6366f1] text-[#6366f1]'
+        : 'border-transparent text-muted-foreground hover:text-foreground'
+    }`;
 
   return (
     <main className="min-h-screen bg-background text-foreground p-4 md:p-6">
@@ -117,37 +128,50 @@ export default function PortfolioPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)}
-            </div>
             <Skeleton className="h-64 rounded-xl" />
           </div>
         )}
 
         {!loading && portfolio && (
           <>
-            {/* 요약 카드 (환율 반영) */}
+            {/* 요약 카드 */}
             <PortfolioSummary portfolio={portfolio} rates={rates} />
 
-            {/* 차트 4개 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <AllocationChart       holdings={portfolio.holdings} rates={rates} />
-              <SectorAllocationChart holdings={portfolio.holdings} rates={rates} />
-              <CountryAllocationChart holdings={portfolio.holdings} rates={rates} />
-              <CurrencyAllocationChart holdings={portfolio.holdings} rates={rates} />
+            {/* 탭 */}
+            <div className="flex border-b border-border gap-0">
+              <button className={tabCls('현황')}  onClick={() => setActiveTab('현황')}>📊 현황</button>
+              <button className={tabCls('AI추천')} onClick={() => setActiveTab('AI추천')}>🎯 AI 추천</button>
             </div>
 
-            {/* 종목 테이블 */}
-            <PortfolioTable
-              holdings={portfolio.holdings}
-              rates={rates}
-              onUpdateHolding={handleUpdateHolding}
-            />
+            {/* 현황 탭 */}
+            {activeTab === '현황' && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <AllocationChart       holdings={portfolio.holdings} rates={rates} />
+                  <SectorAllocationChart holdings={portfolio.holdings} rates={rates} />
+                  <CountryAllocationChart holdings={portfolio.holdings} rates={rates} />
+                  <CurrencyAllocationChart holdings={portfolio.holdings} rates={rates} />
+                </div>
+                <PortfolioTable
+                  holdings={portfolio.holdings}
+                  rates={rates}
+                  onUpdateHolding={handleUpdateHolding}
+                />
+              </div>
+            )}
+
+            {/* AI 추천 탭 */}
+            {activeTab === 'AI추천' && (
+              <PortfolioRecommendation
+                holdings={portfolio.holdings}
+                rates={rates}
+              />
+            )}
           </>
         )}
 
         <p className="text-center text-xs text-muted-foreground/40 pb-4">
-          환율 기준: reports/latest · 가격 매일 08:00 자동 업데이트
+          환율 기준: reports/latest · 가격 매일 16:00 KST 자동 업데이트
         </p>
       </div>
     </main>

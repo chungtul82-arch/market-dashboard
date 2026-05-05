@@ -11,7 +11,7 @@ export interface SectorData {
 
 export interface Signal {
   sector: string;
-  signal: '강세 진입' | '이탈 경고' | '단기 과열';
+  signal: '강세 진입' | '이탈 경고' | '단기 과열' | '저점 반등';
   value: number;
 }
 

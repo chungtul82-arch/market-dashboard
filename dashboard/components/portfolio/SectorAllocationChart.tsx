@@ -52,13 +52,18 @@ export function SectorAllocationChart({ holdings, rates }: Props) {
     <div className="bg-card rounded-xl border border-border p-4">
       <h2 className="text-sm font-semibold text-muted-foreground mb-1">산업섹터별 비중</h2>
       <p className="text-xs text-muted-foreground/60 mb-3">히트맵 섹터 기준 매칭</p>
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={380}>
         <PieChart>
-          <Pie data={data} cx="50%" cy="45%" innerRadius={65} outerRadius={105} paddingAngle={2} dataKey="value">
+          <Pie data={data} cx="50%" cy="38%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
-          <Legend formatter={v => <span className="text-xs text-muted-foreground">{v}</span>} />
+          <Legend
+            layout="horizontal"
+            verticalAlign="bottom"
+            align="center"
+            formatter={v => <span className="text-xs text-muted-foreground">{v}</span>}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>

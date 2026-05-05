@@ -1,22 +1,23 @@
 import warnings
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from config import FETCH_DAYS
 
 warnings.filterwarnings("ignore")
+
+KST = timezone(timedelta(hours=9))
 
 _INDEX_TICKERS = {
     "kospi":   "^KS11",
     "kosdaq":  "^KQ11",
     "vix":     "^VIX",
     "usd_krw": "USDKRW=X",
-    "cny_krw": "CNYKRW=X",   # 위안화/원화
+    "cny_krw": "CNYKRW=X",
 }
 
 
 def get_market_indices() -> dict:
-    """코스피·코스닥·VIX·달러/원 수집."""
     result: dict = {}
     for key, ticker in _INDEX_TICKERS.items():
         try:
@@ -84,6 +85,39 @@ def get_sector_data(sector_etfs: dict, period_days: int = FETCH_DAYS) -> pd.Data
 
 
 def get_foreign_net_buy(sector_etfs: dict) -> dict | None:
-    """외국인 순매수 수집 — 현재 미지원, None 반환."""
-    print("  [INFO] 외국인 순매수 수집 생략 (pykrx API 미지원)")
-    return None
+    """pykrx로 섹터 ETF별 외국인 순매수 (최근 5영업일 합산) 수집."""
+    try:
+        from pykrx import stock as pstock
+
+        today = datetime.now(KST)
+        end   = today.strftime('%Y%m%d')
+        start = (today - timedelta(days=10)).strftime('%Y%m%d')
+
+        # 전체 KOSPI ETF 외국인 순매수 조회
+        df_all = pstock.get_market_net_purchases_of_equities_by_ticker(
+            start, end, 'KOSPI', '외국인합계'
+        )
+        if df_all is None or df_all.empty:
+            print("  [WARN] 외국인 순매수: 데이터 없음")
+            return None
+
+        net_col = next((c for c in df_all.columns if '순매수' in c), None)
+        if not net_col:
+            print("  [WARN] 외국인 순매수: 순매수 컬럼 없음")
+            return None
+
+        result: dict[str, float] = {}
+        for sector, tickers in sector_etfs.items():
+            total = 0.0
+            for ticker in tickers:
+                krx_t = ticker.replace('.KS', '').replace('.KQ', '')
+                if krx_t in df_all.index:
+                    total += float(df_all.loc[krx_t, net_col])
+            result[sector] = total
+
+        print(f"  [OK] 외국인 순매수 수집: {len(result)}개 섹터")
+        return result
+
+    except Exception as e:
+        print(f"  [WARN] 외국인 순매수 수집 실패 (스킵): {e}")
+        return None
