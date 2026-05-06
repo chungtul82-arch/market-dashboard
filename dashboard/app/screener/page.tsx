@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { subscribeScreener } from '@/lib/screenerFirebase';
 import type { ScreenerData, ScreenerFilter as FilterState, ScreenerStock } from '@/types/screener';
 import { ScreenerFilter } from '@/components/screener/ScreenerFilter';
 import { StockCard } from '@/components/screener/StockCard';
 import { LeadingSectorBar } from '@/components/screener/LeadingSectorBar';
+import { ScoringGuide } from '@/components/screener/ScoringGuide';
 
 const DEFAULT_FILTER: FilterState = {
   grade: 'ALL',
@@ -15,16 +18,38 @@ const DEFAULT_FILTER: FilterState = {
   sortBy: 'total_score',
 };
 
+async function fetchSpotMentionedNames(): Promise<Set<string>> {
+  try {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffStr = cutoff.toISOString();
+
+    const snap = await getDocs(
+      query(collection(db, 'spot-history'), where('createdAt', '>=', cutoffStr))
+    );
+
+    const names = new Set<string>();
+    snap.docs.forEach(doc => {
+      const actions = doc.data()?.analysis?.basket_actions ?? [];
+      actions.forEach((a: { name?: string }) => {
+        if (a.name) names.add(a.name.trim());
+      });
+    });
+    return names;
+  } catch {
+    return new Set();
+  }
+}
+
 export default function ScreenerPage() {
-  const [data, setData]     = useState<ScreenerData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
+  const [data,        setData]        = useState<ScreenerData | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [filter,      setFilter]      = useState<FilterState>(DEFAULT_FILTER);
+  const [spotNames,   setSpotNames]   = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const unsub = subscribeScreener(d => {
-      setData(d);
-      setLoading(false);
-    });
+    const unsub = subscribeScreener(d => { setData(d); setLoading(false); });
+    fetchSpotMentionedNames().then(setSpotNames);
     return unsub;
   }, []);
 
@@ -54,6 +79,11 @@ export default function ScreenerPage() {
     });
   }, [data, filter]);
 
+  const spotCount = useMemo(
+    () => filtered.filter(s => spotNames.has(s.name)).length,
+    [filtered, spotNames]
+  );
+
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
       {/* Title */}
@@ -67,6 +97,9 @@ export default function ScreenerPage() {
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">섹터 상대강도</p>
         <LeadingSectorBar />
       </section>
+
+      {/* Scoring Guide */}
+      <ScoringGuide />
 
       {/* Stats bar */}
       {data && (
@@ -86,6 +119,11 @@ export default function ScreenerPage() {
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400">
               B등급 {data.grade_b_count}
             </span>
+            {spotCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+                📍 스팟언급 {spotCount}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 ml-auto text-muted-foreground text-xs">
             표시: {filtered.length}종목
@@ -126,7 +164,11 @@ export default function ScreenerPage() {
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(stock => (
-            <StockCard key={stock.ticker} stock={stock} />
+            <StockCard
+              key={stock.ticker}
+              stock={stock}
+              spotMentioned={spotNames.has(stock.name)}
+            />
           ))}
         </div>
       )}

@@ -35,7 +35,7 @@ function ScoreBar({ label, value, max, color }: { label: string; value: number; 
   );
 }
 
-export function StockCard({ stock }: { stock: ScreenerStock }) {
+export function StockCard({ stock, spotMentioned }: { stock: ScreenerStock; spotMentioned?: boolean }) {
   const gradeA = stock.grade === 'A';
   const chgPos = stock.change_pct >= 0;
 
@@ -52,6 +52,11 @@ export function StockCard({ stock }: { stock: ScreenerStock }) {
             </span>
             <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{stock.market}</span>
             <PatternBadge pattern={stock.buy_pattern} />
+            {spotMentioned && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 font-medium">
+                📍 스팟언급
+              </span>
+            )}
           </div>
           <p className="mt-1 font-semibold text-sm text-foreground truncate">{stock.name}</p>
           <p className="text-xs text-muted-foreground">{stock.ticker} · {stock.sector_mapped || stock.sector_krx}</p>

@@ -190,6 +190,8 @@ export function HeatmapTable({ sectors, signals }: Props) {
   const [selected,    setSelected]    = useState<string | null>(null);
   const [constituent, setConstituent] = useState<string | null>(null);
 
+  if (!sectors || !signals) return null;
+
   const signalMap = new Map<string, Signal[]>();
   signals.forEach((sig) => {
     signalMap.set(sig.sector, [...(signalMap.get(sig.sector) ?? []), sig]);

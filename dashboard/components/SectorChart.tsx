@@ -48,6 +48,8 @@ export function SectorChart({ sectors }: Props) {
     '60d': 'return_60d',
   };
 
+  if (!sectors) return null;
+
   const data = Object.entries(sectors)
     .map(([name, d]) => ({
       name,
