@@ -3,12 +3,13 @@
 스코어링 시스템: 최대 17점
   A그룹 (추세)  : 6점
   B그룹 (타이밍): 3점
-  C그룹 (수급)  : 4점  ← pykrx 불안정으로 현재 비활성
+  C그룹 (수급)  : 4점
   D그룹 (섹터)  : +2 ~ -1점
 등급: A=10점+, B=7~9점, C=6점 이하(제외)
 
 유니버스: FinanceDataReader (로그인 불필요)
 가격데이터: yfinance 배치
+수급데이터: pykrx (KRX_ID / KRX_PW 환경변수 필요)
 """
 import warnings
 import pandas as pd
@@ -19,28 +20,30 @@ warnings.filterwarnings("ignore")
 
 KST           = timezone(timedelta(hours=9))
 MIN_PRICE     = 1_000
-MIN_TRADE_VAL = 1_000_000_000   # 일평균 거래대금 10억 (가격×거래량 근사)
+MIN_TRADE_VAL = 1_000_000_000
 TOP_N         = 30
 BATCH         = 25
 HIST_DAYS     = 80
 
+# FinanceDataReader 업종명 + pykrx 업종명 모두 포함
 SECTOR_MAPPING = {
-    "AI·반도체":   ["반도체", "IT부품", "전자부품", "전자"],
-    "소부장":      ["화학", "기계", "소재", "비철금속"],
-    "전력·전기":   ["전기전자", "유틸리티", "전력"],
+    "AI·반도체":   ["반도체", "IT부품", "전자부품", "전기전자"],
+    "소부장":      ["화학", "기계", "소재", "비철금속", "철강금속", "금속"],
+    "전력·전기":   ["전력", "유틸리티", "전기가스"],
     "원자력":      ["에너지", "원자력"],
     "방산":        ["방위산업", "항공우주"],
-    "중공업·조선": ["조선", "중공업", "철강"],
-    "재건·인프라": ["건설", "인프라", "시멘트"],
-    "바이오":      ["바이오", "제약", "헬스케어", "의료기기"],
+    "중공업·조선": ["조선", "중공업", "운수장비"],
+    "재건·인프라": ["건설", "인프라", "시멘트", "비금속"],
+    "바이오":      ["바이오", "제약", "헬스케어", "의료", "의약"],
     "2차전지":     ["전기차", "배터리", "이차전지"],
     "증권·금융":   ["증권", "은행", "금융", "보험"],
 }
 
 
 def map_sector(sector_str: str) -> str:
+    s = str(sector_str)
     for mapped, kws in SECTOR_MAPPING.items():
-        if any(k in sector_str for k in kws):
+        if any(k in s for k in kws):
             return mapped
     return ""
 
@@ -57,7 +60,6 @@ def get_universe() -> pd.DataFrame:
                     print(f"  [WARN] {market} 목록 비어있음")
                     continue
 
-                # 컬럼 정규화
                 df.columns = [c.strip() for c in df.columns]
                 sym_col  = next((c for c in df.columns if c in ('Symbol', 'Code', 'Ticker')), None)
                 name_col = next((c for c in df.columns if c in ('Name', '종목명', 'name')), None)
@@ -69,9 +71,9 @@ def get_universe() -> pd.DataFrame:
 
                 result = pd.DataFrame(index=df[sym_col])
                 result.index.name = None
-                result['name']   = df[name_col].values   if name_col else df[sym_col].values
-                result['market'] = market
-                result['sector_krx'] = df[sec_col].values if sec_col else ''
+                result['name']       = df[name_col].values   if name_col else df[sym_col].values
+                result['market']     = market
+                result['sector_krx'] = df[sec_col].values    if sec_col  else ''
                 dfs.append(result)
                 print(f"  {market}: {len(result)}개")
             except Exception as e:
@@ -83,7 +85,6 @@ def get_universe() -> pd.DataFrame:
         df = pd.concat(dfs)
         df = df[~df['name'].astype(str).str.contains(
             '스팩|SPAC|ETF|ETN|인버스|레버리지|리츠', na=False, regex=True)]
-
         print(f"  유니버스 총 {len(df)}개 (필터 전)")
         return df
     except Exception as e:
@@ -126,6 +127,43 @@ def get_price_history_batch(universe: pd.DataFrame, start: str, end: str) -> dic
     return results
 
 
+# ── 투자자 수급 (pykrx, KRX_ID/KRX_PW 필요) ──────────────
+def get_investor_streaks() -> dict:
+    result: dict[str, dict] = {}
+    try:
+        from pykrx import stock as pstock
+        today = datetime.now(KST)
+        end   = today.strftime('%Y%m%d')
+        start = (today - timedelta(days=14)).strftime('%Y%m%d')
+
+        for market in ['KOSPI', 'KOSDAQ']:
+            for investor, key in [('외국인합계', 'foreign'), ('기관합계', 'institution')]:
+                try:
+                    df = pstock.get_market_net_purchases_of_equities_by_ticker(
+                        start, end, market, investor)
+                    if df is None or df.empty:
+                        continue
+                    net_col = next((c for c in df.columns if '순매수' in c), None)
+                    if not net_col:
+                        continue
+                    for ticker, row in df.iterrows():
+                        if ticker not in result:
+                            result[ticker] = {}
+                        if float(row[net_col]) > 0:
+                            result[ticker][f'{key}_streak'] = \
+                                result[ticker].get(f'{key}_streak', 0) + 1
+                except Exception as e:
+                    print(f"  [WARN] 수급 {market}/{investor}: {e}")
+
+        if result:
+            print(f"  [OK] 투자자 수급: {len(result)}개 종목")
+        else:
+            print("  [WARN] 투자자 수급 데이터 없음 (KRX 로그인 확인)")
+    except Exception as e:
+        print(f"  [WARN] 투자자 수급 전체 실패: {e}")
+    return result
+
+
 # ── 섹터 RS (Firebase) ────────────────────────────────────
 def get_sector_rs(db) -> dict:
     try:
@@ -140,7 +178,7 @@ def get_sector_rs(db) -> dict:
 
 # ── 스코어링 ──────────────────────────────────────────────
 def score_stock(ticker: str, row: pd.Series, hist: pd.DataFrame,
-                sector_rs: dict) -> dict | None:
+                investor: dict, sector_rs: dict) -> dict | None:
     if hist.empty or len(hist) < 20:
         return None
 
@@ -153,7 +191,6 @@ def score_stock(ticker: str, row: pd.Series, hist: pd.DataFrame,
     if c0 < MIN_PRICE:
         return None
 
-    # 거래대금 필터 (가격 × 20일 평균 거래량)
     vma20  = float(volume.tail(20).mean())
     if c0 * vma20 < MIN_TRADE_VAL:
         return None
@@ -191,8 +228,12 @@ def score_stock(ticker: str, row: pd.Series, hist: pd.DataFrame,
     if below and c0 >= ma20 and vratio >= 1.5 and c0 > o0 and score_b < 3:
         score_b, pattern = 3, "B3"
 
-    # C: 수급 — pykrx 불안정으로 비활성 (항상 0)
-    score_c = 0
+    # C: 수급 (max 4) — KRX 로그인 시 실제 데이터, 아니면 0
+    inv  = investor.get(ticker, {})
+    fs   = inv.get('foreign_streak', 0)
+    ins  = inv.get('institution_streak', 0)
+    score_c = (2 if fs >= 3 else 1 if fs >= 1 else 0) + \
+              (2 if ins >= 3 else 1 if ins >= 1 else 0)
 
     # D: 섹터 RS (max +2, min -1)
     sk  = str(row.get('sector_krx', ''))
@@ -211,6 +252,10 @@ def score_stock(ticker: str, row: pd.Series, hist: pd.DataFrame,
     if h52r >= 90:                 sigs.append("52주신고가")
     if pattern:
         sigs.append({'B1': '패턴1-눌림', 'B2': '패턴2-양봉', 'B3': '패턴3-반등'}[pattern])
+    if fs >= 3:    sigs.append(f"외국인{fs}일↑")
+    elif fs >= 1:  sigs.append("외국인순매수")
+    if ins >= 3:   sigs.append(f"기관{ins}일↑")
+    elif ins >= 1: sigs.append("기관순매수")
     if vratio >= 2.0: sigs.append(f"거래량{vratio:.1f}배")
 
     return {
@@ -223,7 +268,7 @@ def score_stock(ticker: str, row: pd.Series, hist: pd.DataFrame,
         'ma_alignment': bool(ma60 and ma5 > ma20 > ma60),
         'high_52w': int(high52), 'high_52w_ratio': round(h52r, 1),
         'near_52w_high': h52r >= 90,
-        'foreign_buy_streak': 0, 'institution_buy_streak': 0,
+        'foreign_buy_streak': fs, 'institution_buy_streak': ins,
         'buy_pattern': pattern, 'sector_strength': round(float(rs), 1),
         'score_a': score_a, 'score_b': score_b,
         'score_c': score_c, 'score_d': score_d,
@@ -252,6 +297,9 @@ def run_screener(db=None) -> list[dict]:
     hists = get_price_history_batch(universe, start, end)
     print(f"  [스크리너] 다운로드 완료: {len(hists)}개")
 
+    print("  [스크리너] 투자자 수급 조회...")
+    investor = get_investor_streaks()
+
     sector_rs = get_sector_rs(db) if db else {}
     print(f"  [스크리너] 섹터 RS: {len(sector_rs)}개")
 
@@ -259,7 +307,7 @@ def run_screener(db=None) -> list[dict]:
     for ticker, hist in hists.items():
         if ticker not in universe.index:
             continue
-        scored = score_stock(ticker, universe.loc[ticker], hist, sector_rs)
+        scored = score_stock(ticker, universe.loc[ticker], hist, investor, sector_rs)
         if scored:
             results.append(scored)
 

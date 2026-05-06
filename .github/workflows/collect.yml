@@ -32,10 +32,12 @@ jobs:
 
       - name: 데이터 수집 및 Firebase 업로드
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
           FIREBASE_PROJECT_ID: stockinvest-6cea8
-          DASHBOARD_URL:      ${{ secrets.DASHBOARD_URL }}
+          DASHBOARD_URL:       ${{ secrets.DASHBOARD_URL }}
+          KRX_ID:              ${{ secrets.KRX_ID }}
+          KRX_PW:              ${{ secrets.KRX_PW }}
         run: python collector/main.py --now
 
       - name: 키 파일 삭제 (보안)
