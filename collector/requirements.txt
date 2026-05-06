@@ -4,4 +4,4 @@ firebase-admin
 APScheduler
 requests
 python-dotenv
-pykrx
+FinanceDataReader
