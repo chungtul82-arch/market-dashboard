@@ -43,15 +43,33 @@ def map_sector(sector_krx: str) -> str:
     return ""
 
 
+# ── 최근 거래일 탐색 ──────────────────────────────────────
+def _last_trading_day(base: str, pstock) -> str:
+    """base 날짜부터 최대 10일 전까지 거슬러 올라가 실제 거래일 반환."""
+    dt = datetime.strptime(base, '%Y%m%d')
+    for i in range(10):
+        candidate = (dt - timedelta(days=i)).strftime('%Y%m%d')
+        try:
+            df = pstock.get_market_cap_by_ticker(candidate, market='KOSPI')
+            if df is not None and not df.empty and '시가총액' in df.columns:
+                if i > 0:
+                    print(f"  [INFO] 거래일 조정: {base} → {candidate}")
+                return candidate
+        except Exception:
+            pass
+    return base
+
+
 # ── 유니버스 ───────────────────────────────────────────────
 def get_universe(today: str) -> pd.DataFrame:
     try:
         from pykrx import stock as pstock
+        td = _last_trading_day(today, pstock)
         dfs = []
         for market in ['KOSPI', 'KOSDAQ']:
             try:
-                cap   = pstock.get_market_cap_by_ticker(today, market=market)
-                ohlcv = pstock.get_market_ohlcv_by_ticker(today, market=market)
+                cap   = pstock.get_market_cap_by_ticker(td, market=market)
+                ohlcv = pstock.get_market_ohlcv_by_ticker(td, market=market)
                 df    = cap.join(ohlcv, how='inner')
                 df['market'] = market
                 dfs.append(df)
@@ -129,12 +147,13 @@ def get_investor_streaks(today: str) -> dict:
     result: dict[str, dict] = {}
     try:
         from pykrx import stock as pstock
-        start = (datetime.strptime(today, '%Y%m%d') - timedelta(days=14)).strftime('%Y%m%d')
+        td    = _last_trading_day(today, pstock)
+        start = (datetime.strptime(td, '%Y%m%d') - timedelta(days=14)).strftime('%Y%m%d')
         for market in ['KOSPI', 'KOSDAQ']:
             for investor, key in [('외국인합계', 'foreign'), ('기관합계', 'institution')]:
                 try:
                     df = pstock.get_market_net_purchases_of_equities_by_ticker(
-                        start, today, market, investor)
+                        start, td, market, investor)
                     if df is None or df.empty:
                         continue
                     net_col = next((c for c in df.columns if '순매수' in c), None)
@@ -279,7 +298,7 @@ def run_screener(db=None) -> list[dict]:
 
     total = len(universe)
     start = (today - timedelta(days=HIST_DAYS)).strftime('%Y-%m-%d')
-    end   = today.strftime('%Y-%m-%d')
+    end   = (today + timedelta(days=1)).strftime('%Y-%m-%d')  # yfinance end는 exclusive
 
     print(f"  [스크리너] 가격 히스토리 다운로드 ({total}개)...")
     hists = get_price_history_batch(universe, start, end)
