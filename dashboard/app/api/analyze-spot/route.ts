@@ -1,23 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error('[analyze-spot] ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.');
-}
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' });
-
 const SYSTEM = `당신은 한국 주식시장 전문 애널리스트입니다.
 박병창 투자전략가의 스팟 시황 텍스트를 분석하여 핵심 정보를 추출합니다.
 응답은 반드시 유효한 JSON 형식으로만 해주세요. 마크다운 코드블록 없이 JSON만 출력하세요.`;
 
 export async function POST(request: Request) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다. Vercel 환경변수를 확인해 주세요.' },
+      { status: 500 },
+    );
+  }
+
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다. Vercel 환경변수를 확인해 주세요.' },
-        { status: 500 },
-      );
-    }
+    const client = new Anthropic({ apiKey });
+
     const { text, basketStocks = [] } = await request.json();
     if (!text?.trim()) return NextResponse.json({ error: '텍스트가 비어있습니다.' }, { status: 400 });
 
