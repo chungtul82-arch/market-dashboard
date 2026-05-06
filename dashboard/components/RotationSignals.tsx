@@ -114,7 +114,8 @@ export function RotationSignals({ signals }: Props) {
       {SIGNAL_ORDER.map(type => {
         const list = grouped[type];
         if (!list || list.length === 0) return null;
-        const meta = SIGNAL_META[type];
+        const meta = SIGNAL_META[type as keyof typeof SIGNAL_META];
+        if (!meta) return null;
         return (
           <div key={type}>
             <p className="text-xs text-muted-foreground/60 mb-1.5 font-medium">{meta.icon} {meta.title}</p>
