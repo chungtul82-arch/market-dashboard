@@ -48,10 +48,37 @@ def map_sector(sector_str: str) -> str:
     return ""
 
 
-# ── 유니버스 (FinanceDataReader) ───────────────────────────
+# ── pykrx로 업종 보강 ─────────────────────────────────────
+def _get_krx_sectors(market: str, td: str) -> dict[str, str]:
+    """pykrx에서 공식 KRX 업종명 가져오기. {티커: 업종명} 반환."""
+    try:
+        from pykrx import stock as pstock
+        cap = pstock.get_market_cap_by_ticker(td, market=market)
+        if cap is None or cap.empty:
+            return {}
+        sec_col = next((c for c in cap.columns if '업종' in c), None)
+        if not sec_col:
+            return {}
+        result = {str(k): str(v) for k, v in cap[sec_col].items() if v}
+        print(f"  pykrx 업종 수집: {market} {len(result)}개")
+        return result
+    except Exception as e:
+        print(f"  [WARN] pykrx 업종 수집 실패 ({market}): {e}")
+        return {}
+
+
+# ── 유니버스 (FinanceDataReader + pykrx 업종) ──────────────
 def get_universe() -> pd.DataFrame:
     try:
         import FinanceDataReader as fdr
+
+        # pykrx로 업종 미리 수집 (최근 거래일)
+        today = datetime.now(KST)
+        td = today.strftime('%Y%m%d')
+        sector_map_krx: dict[str, str] = {}
+        for m in ['KOSPI', 'KOSDAQ']:
+            sector_map_krx.update(_get_krx_sectors(m, td))
+
         dfs = []
         for market in ['KOSPI', 'KOSDAQ']:
             try:
@@ -63,7 +90,6 @@ def get_universe() -> pd.DataFrame:
                 df.columns = [c.strip() for c in df.columns]
                 sym_col  = next((c for c in df.columns if c in ('Symbol', 'Code', 'Ticker')), None)
                 name_col = next((c for c in df.columns if c in ('Name', '종목명', 'name')), None)
-                sec_col  = next((c for c in df.columns if c in ('Sector', 'Industry', '업종')), None)
 
                 if sym_col is None:
                     print(f"  [WARN] {market}: Symbol 컬럼 없음 — cols: {list(df.columns)}")
@@ -71,9 +97,17 @@ def get_universe() -> pd.DataFrame:
 
                 result = pd.DataFrame(index=df[sym_col])
                 result.index.name = None
-                result['name']       = df[name_col].values   if name_col else df[sym_col].values
-                result['market']     = market
-                result['sector_krx'] = df[sec_col].values    if sec_col  else ''
+                result['name']   = df[name_col].values if name_col else df[sym_col].values
+                result['market'] = market
+                # pykrx 업종 우선, 없으면 fdr 업종
+                fdr_sec = None
+                sec_col = next((c for c in df.columns if c in ('Sector', 'Industry', '업종')), None)
+                if sec_col is not None:
+                    fdr_sec = df[sec_col].values
+                result['sector_krx'] = [
+                    sector_map_krx.get(str(t), str(fdr_sec[i]) if fdr_sec is not None else '')
+                    for i, t in enumerate(df[sym_col].values)
+                ]
                 dfs.append(result)
                 print(f"  {market}: {len(result)}개")
             except Exception as e:
@@ -85,6 +119,10 @@ def get_universe() -> pd.DataFrame:
         df = pd.concat(dfs)
         df = df[~df['name'].astype(str).str.contains(
             '스팩|SPAC|ETF|ETN|인버스|레버리지|리츠', na=False, regex=True)]
+
+        # 업종 분포 로그 (상위 10개)
+        top_sectors = df['sector_krx'].value_counts().head(10)
+        print(f"  업종 상위 10개: {dict(top_sectors)}")
         print(f"  유니버스 총 {len(df)}개 (필터 전)")
         return df
     except Exception as e:
