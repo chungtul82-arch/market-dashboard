@@ -23,3 +23,5 @@ __pycache__/
 # 로그
 *.log
 scheduler.log
+.vercel
+.env*.local

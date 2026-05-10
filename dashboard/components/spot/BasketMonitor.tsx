@@ -101,22 +101,12 @@ function StockCard({
   );
 }
 
-// 종목 검색
-async function searchStocks(query: string): Promise<{ symbol: string; name: string }[]> {
+// 종목 검색 — 서버 프록시 경유 (CORS 우회)
+async function searchStocks(query: string): Promise<{ symbol: string; name: string; market?: string }[]> {
   if (!query.trim()) return [];
   try {
-    const res = await fetch(
-      `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8&lang=ko&region=KR`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' } },
-    );
-    const data = await res.json();
-    return (data?.quotes ?? [])
-      .filter((q: { quoteType?: string }) => ['EQUITY', 'ETF'].includes(q.quoteType ?? ''))
-      .map((q: { symbol: string; shortname?: string; longname?: string }) => ({
-        symbol: q.symbol,
-        name:   q.shortname || q.longname || q.symbol,
-      }))
-      .slice(0, 6);
+    const res = await fetch(`/api/stock-search?q=${encodeURIComponent(query)}`);
+    return res.ok ? await res.json() : [];
   } catch { return []; }
 }
 
@@ -127,7 +117,7 @@ export function BasketMonitor() {
   const [refreshing,   setRefreshing]   = useState(false);
   const [lastRefresh,  setLastRefresh]  = useState('');
   const [query,        setQuery]        = useState('');
-  const [searchResult, setSearchResult] = useState<{ symbol: string; name: string }[]>([]);
+  const [searchResult, setSearchResult] = useState<{ symbol: string; name: string; market?: string }[]>([]);
   const [searching,    setSearching]    = useState(false);
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const open = isMarketOpen();
@@ -243,11 +233,13 @@ export function BasketMonitor() {
             {searchResult.map(r => (
               <button
                 key={r.symbol}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors flex items-center justify-between"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors flex items-center justify-between gap-2"
                 onClick={() => addStock(r.symbol, r.name)}
               >
-                <span className="text-foreground">{r.name}</span>
-                <span className="text-xs text-muted-foreground font-num">{r.symbol}</span>
+                <span className="text-foreground truncate">{r.name}</span>
+                <span className="text-xs text-muted-foreground font-num shrink-0">
+                  {r.symbol}{r.market ? ` · ${r.market}` : ''}
+                </span>
               </button>
             ))}
           </div>

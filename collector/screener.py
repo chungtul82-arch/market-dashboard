@@ -25,18 +25,33 @@ TOP_N         = 30
 BATCH         = 25
 HIST_DAYS     = 80
 
-# FinanceDataReader 업종명 + pykrx 업종명 모두 포함
+# pykrx 업종명(한국어) + FinanceDataReader Sector 컬럼(영어 GICS) 모두 포함
 SECTOR_MAPPING = {
-    "AI·반도체":   ["반도체", "IT부품", "전자부품", "전기전자"],
-    "소부장":      ["화학", "기계", "소재", "비철금속", "철강금속", "금속"],
-    "전력·전기":   ["전력", "유틸리티", "전기가스"],
-    "원자력":      ["에너지", "원자력"],
-    "방산":        ["방위산업", "항공우주"],
-    "중공업·조선": ["조선", "중공업", "운수장비"],
-    "재건·인프라": ["건설", "인프라", "시멘트", "비금속"],
-    "바이오":      ["바이오", "제약", "헬스케어", "의료", "의약"],
-    "2차전지":     ["전기차", "배터리", "이차전지"],
-    "증권·금융":   ["증권", "은행", "금융", "보험"],
+    "AI·반도체":   [
+        "반도체", "IT부품", "전자부품", "전기전자",
+        "Technology", "Information Technology", "Semiconductors",
+        "Semi", "Electronic",
+    ],
+    "소부장":      [
+        "화학", "기계", "소재", "비철금속", "철강금속", "금속",
+        "Materials", "Basic Materials", "Chemicals", "Industrials",
+        "Industrial Goods",
+    ],
+    "전력·전기":   ["전력", "유틸리티", "전기가스", "Utilities"],
+    "원자력":      ["에너지", "원자력", "Energy"],
+    "방산":        ["방위산업", "항공우주", "Defense", "Aerospace"],
+    "중공업·조선": ["조선", "중공업", "운수장비", "Shipbuilding", "Heavy"],
+    "재건·인프라": ["건설", "인프라", "시멘트", "비금속", "Construction", "Real Estate"],
+    "바이오":      [
+        "바이오", "제약", "헬스케어", "의료", "의약",
+        "Healthcare", "Health Care", "Biotechnology", "Pharmaceutical",
+    ],
+    "2차전지":     ["전기차", "배터리", "이차전지", "Battery"],
+    "증권·금융":   [
+        "증권", "은행", "금융", "보험",
+        "Financials", "Financial", "Banks", "Insurance",
+        "Financial Services",
+    ],
 }
 
 
@@ -114,6 +129,10 @@ def get_universe() -> pd.DataFrame:
                 sec_col = next((c for c in df.columns if c in ('Sector', 'Industry', '업종')), None)
                 if sec_col is not None:
                     fdr_sec = df[sec_col].values
+                    sample = df[sec_col].value_counts().head(3).to_dict()
+                    print(f"  {market} FDR 섹터컬럼='{sec_col}' 샘플: {sample}")
+                else:
+                    print(f"  {market} FDR 섹터컬럼 없음 — 컬럼목록: {list(df.columns)[:8]}")
                 result['sector_krx'] = [
                     sector_map_krx.get(str(t), str(fdr_sec[i]) if fdr_sec is not None else '')
                     for i, t in enumerate(df[sym_col].values)
@@ -217,8 +236,16 @@ def get_sector_rs(db) -> dict:
     try:
         doc = db.collection('reports').document('latest').get()
         if not doc.exists:
+            print("  [WARN] 섹터 RS: reports/latest 문서 없음")
             return {}
-        return {k: v.get('rs_score', 50) for k, v in doc.to_dict().get('sectors', {}).items()}
+        sectors = doc.to_dict().get('sectors', {})
+        if not sectors:
+            print("  [WARN] 섹터 RS: sectors 키 없음 또는 빈 dict")
+            return {}
+        result = {k: v.get('rs_score', 50) for k, v in sectors.items()}
+        top3 = sorted(result.items(), key=lambda x: -x[1])[:3]
+        print(f"  [OK] 섹터 RS {len(result)}개 로드 — 상위3: {top3}")
+        return result
     except Exception as e:
         print(f"  [WARN] 섹터 RS 실패: {e}")
         return {}
