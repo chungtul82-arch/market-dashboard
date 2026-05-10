@@ -48,22 +48,34 @@ def map_sector(sector_str: str) -> str:
     return ""
 
 
-# ── pykrx로 업종 보강 ─────────────────────────────────────
-def _get_krx_sectors(market: str, td: str) -> dict[str, str]:
-    """pykrx에서 공식 KRX 업종명 가져오기. {티커: 업종명} 반환."""
+# ── pykrx 섹터별 구성종목으로 티커→업종 매핑 ────────────────
+def _get_krx_sectors_by_industry(td: str) -> dict[str, str]:
+    """
+    pykrx의 섹터별 구성종목 조회로 {티커: 업종명} 매핑 구축.
+    KRX 업종명을 기준으로 탐색.
+    """
     try:
         from pykrx import stock as pstock
-        cap = pstock.get_market_cap_by_ticker(td, market=market)
-        if cap is None or cap.empty:
-            return {}
-        sec_col = next((c for c in cap.columns if '업종' in c), None)
-        if not sec_col:
-            return {}
-        result = {str(k): str(v) for k, v in cap[sec_col].items() if v}
-        print(f"  pykrx 업종 수집: {market} {len(result)}개")
+        # KRX 주요 업종명 (KOSPI 기준)
+        sectors = [
+            "음식료품", "섬유의복", "종이목재", "화학", "의약품",
+            "비금속광물", "철강금속", "기계", "전기전자", "의료정밀",
+            "운수장비", "기타제조업", "건설업", "유통업", "운수창고업",
+            "통신업", "금융업", "은행", "증권", "보험", "서비스업",
+        ]
+        result: dict[str, str] = {}
+        for sec in sectors:
+            try:
+                df = pstock.get_market_sector_leader(td, sec)
+                if df is not None and not df.empty:
+                    for ticker in df.index:
+                        result[str(ticker)] = sec
+            except Exception:
+                pass
+        print(f"  pykrx 섹터 매핑: {len(result)}개 티커")
         return result
     except Exception as e:
-        print(f"  [WARN] pykrx 업종 수집 실패 ({market}): {e}")
+        print(f"  [WARN] pykrx 섹터 매핑 실패: {e}")
         return {}
 
 
@@ -75,9 +87,7 @@ def get_universe() -> pd.DataFrame:
         # pykrx로 업종 미리 수집 (최근 거래일)
         today = datetime.now(KST)
         td = today.strftime('%Y%m%d')
-        sector_map_krx: dict[str, str] = {}
-        for m in ['KOSPI', 'KOSDAQ']:
-            sector_map_krx.update(_get_krx_sectors(m, td))
+        sector_map_krx = _get_krx_sectors_by_industry(td)
 
         dfs = []
         for market in ['KOSPI', 'KOSDAQ']:
