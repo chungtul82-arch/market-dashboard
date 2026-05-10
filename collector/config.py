@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8301921027:AAElzWo9-1S1TcwjN6UrWJmotCRGO5czVA4")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7787032445:AAHs_NpnX99NvxeWyaHIBt3qPgFmCX7Dl6M")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 DASHBOARD_URL      = os.getenv("DASHBOARD_URL", "")
 
