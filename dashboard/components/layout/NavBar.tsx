@@ -5,10 +5,11 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const LINKS = [
-  { href: '/',          label: '📊 시장 대시보드' },
-  { href: '/portfolio', label: '💼 포트폴리오'     },
-  { href: '/spot',      label: '🔍 스팟 시황'      },
+  { href: '/',          label: '📊 시장 대시보드'  },
+  { href: '/portfolio', label: '💼 포트폴리오'      },
+  { href: '/spot',      label: '🔍 스팟 시황'       },
   { href: '/screener',  label: '🎯 주도주 스크리너' },
+  { href: '/compare',   label: '⚖️ 포트폴리오 비교' },
 ];
 
 export function NavBar() {
