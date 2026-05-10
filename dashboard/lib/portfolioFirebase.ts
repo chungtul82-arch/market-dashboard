@@ -6,6 +6,19 @@ import type { Portfolio, Holding, PortfolioMeta } from '@/types';
 
 const COLL = 'portfolios';
 
+/** Firestore는 undefined 값을 허용하지 않으므로 저장 전 제거 */
+function sanitize<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data, (_, v) => v === undefined ? null : v));
+}
+
+function recalcTotals(holdings: Holding[]) {
+  const totalCurrentValue = holdings.reduce((s, h) => s + (h.currentValue ?? 0), 0);
+  const totalInvested     = holdings.reduce((s, h) => s + (h.investedValue ?? 0), 0);
+  const totalPnl          = totalCurrentValue - totalInvested;
+  const totalReturnPct    = totalInvested !== 0 ? (totalPnl / totalInvested) * 100 : 0;
+  return { totalCurrentValue, totalInvested, totalPnl, totalReturnPct };
+}
+
 export async function listPortfolios(): Promise<PortfolioMeta[]> {
   const snap = await getDocs(collection(db, COLL));
   return snap.docs
@@ -46,7 +59,7 @@ export function subscribeAllPortfolios(cb: (list: Portfolio[]) => void): () => v
 }
 
 export async function savePortfolio(id: string, data: Omit<Portfolio, 'id'>): Promise<void> {
-  await setDoc(doc(db, COLL, id), data, { merge: true });
+  await setDoc(doc(db, COLL, id), sanitize(data), { merge: true });
 }
 
 export async function updateHolding(portfolioId: string, symbol: string, updates: Partial<Holding>): Promise<void> {
@@ -58,7 +71,6 @@ export async function updateHolding(portfolioId: string, symbol: string, updates
   const holdings  = portfolio.holdings.map(h => {
     if (h.symbol !== symbol) return h;
     const merged = { ...h, ...updates };
-    // 수량·단가 변경 시 파생값 재계산
     merged.investedValue = merged.avgPurchasePrice * merged.quantity;
     merged.currentValue  = merged.currentPrice     * merged.quantity;
     merged.pnl           = merged.currentValue - merged.investedValue;
@@ -66,12 +78,19 @@ export async function updateHolding(portfolioId: string, symbol: string, updates
     return merged;
   });
 
-  const totalCurrentValue = holdings.reduce((s, h) => s + h.currentValue, 0);
-  const totalInvested     = holdings.reduce((s, h) => s + h.investedValue, 0);
-  const totalPnl          = totalCurrentValue - totalInvested;
-  const totalReturnPct    = totalInvested !== 0 ? (totalPnl / totalInvested) * 100 : 0;
+  await updateDoc(ref, sanitize({ holdings, ...recalcTotals(holdings) }));
+}
 
-  await updateDoc(ref, { holdings, totalCurrentValue, totalInvested, totalPnl, totalReturnPct });
+/** 체크박스로 선택한 종목들 일괄 삭제 */
+export async function deleteHoldings(portfolioId: string, symbols: string[]): Promise<void> {
+  const ref  = doc(db, COLL, portfolioId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  const portfolio = snap.data() as Portfolio;
+  const remaining = portfolio.holdings.filter(h => !symbols.includes(h.symbol));
+
+  await updateDoc(ref, sanitize({ holdings: remaining, ...recalcTotals(remaining) }));
 }
 
 export async function deletePortfolio(id: string): Promise<void> {
@@ -83,20 +102,13 @@ export async function saveHoldings(
   holdings: Holding[],
   name?: string,
 ): Promise<void> {
-  const totalCurrentValue = holdings.reduce((s, h) => s + h.currentValue, 0);
-  const totalInvested     = holdings.reduce((s, h) => s + h.investedValue, 0);
-  const totalPnl          = totalCurrentValue - totalInvested;
-  const totalReturnPct    = totalInvested !== 0 ? (totalPnl / totalInvested) * 100 : 0;
-
   const update: Record<string, unknown> = {
     holdings,
-    totalCurrentValue,
-    totalInvested,
-    totalPnl,
-    totalReturnPct,
+    ...recalcTotals(holdings),
     uploadedAt: new Date().toISOString(),
   };
   if (name) update.name = name;
 
-  await setDoc(doc(db, COLL, portfolioId), update, { merge: true });
+  // sanitize로 undefined 제거 후 저장
+  await setDoc(doc(db, COLL, portfolioId), sanitize(update), { merge: true });
 }

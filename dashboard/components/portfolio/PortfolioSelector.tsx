@@ -8,22 +8,33 @@ import type { PortfolioMeta } from '@/types';
 import { cn, fmtNumber } from '@/lib/utils';
 
 interface Props {
-  portfolios: PortfolioMeta[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
+  portfolios:  PortfolioMeta[];
+  selectedId:  string | null;
+  onSelect:    (id: string) => void;
   onCreateNew: () => void;
+  onDelete?:   (id: string) => void;
 }
 
-export function PortfolioSelector({ portfolios, selectedId, onSelect, onCreateNew }: Props) {
-  const [open, setOpen] = useState(false);
+export function PortfolioSelector({ portfolios, selectedId, onSelect, onCreateNew, onDelete }: Props) {
+  const [open,    setOpen]    = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const selected = portfolios.find(p => p.id === selectedId);
 
   async function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation();
     if (!confirm('포트폴리오를 삭제하시겠습니까?')) return;
-    await deletePortfolio(id);
-    if (selectedId === id && portfolios.length > 1) {
-      onSelect(portfolios.find(p => p.id !== id)!.id);
+    setDeleting(id);
+    try {
+      await deletePortfolio(id);
+      // 삭제된 것이 선택 중이면 다른 포트폴리오로 전환
+      if (selectedId === id) {
+        const other = portfolios.find(p => p.id !== id);
+        if (other) onSelect(other.id);
+      }
+      onDelete?.(id);  // 부모에 삭제 알림 → 목록 새로고침
+    } finally {
+      setDeleting(null);
+      setOpen(false);
     }
   }
 
@@ -59,8 +70,10 @@ export function PortfolioSelector({ portfolios, selectedId, onSelect, onCreateNe
                   )}
                 </div>
                 <button
-                  className="text-muted-foreground hover:text-down p-1 rounded"
+                  className="text-muted-foreground hover:text-down p-1 rounded disabled:opacity-40"
+                  disabled={deleting === p.id}
                   onClick={e => handleDelete(e, p.id)}
+                  title="포트폴리오 삭제"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

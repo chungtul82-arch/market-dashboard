@@ -12,7 +12,7 @@ import { SectorAllocationChart }   from '@/components/portfolio/SectorAllocation
 import { PortfolioJsonInput }      from '@/components/portfolio/PortfolioJsonInput';
 import { PerformanceChart }        from '@/components/portfolio/PerformanceChart';
 import {
-  listPortfolios, subscribePortfolio, updateHolding, createPortfolio, saveHoldings,
+  listPortfolios, subscribePortfolio, updateHolding, createPortfolio, saveHoldings, deleteHoldings,
 } from '@/lib/portfolioFirebase';
 import type { Portfolio, PortfolioMeta, Holding } from '@/types';
 
@@ -116,6 +116,22 @@ export default function PortfolioPage() {
     await updateHolding(selectedId, symbol, updates);
   }
 
+  async function handleBulkDelete(symbols: string[]) {
+    if (!selectedId) return;
+    await deleteHoldings(selectedId, symbols);
+  }
+
+  async function handleDeletePortfolio(id: string) {
+    const remaining = portfolioList.filter(p => p.id !== id);
+    const list = await listPortfolios();
+    setPortfolioList(list);
+    if (remaining.length === 0) {
+      setSelectedId(null);
+      setPortfolio(null);
+      setLiveHoldings(null);
+    }
+  }
+
   const totalCurrentValue = displayHoldings.reduce((s, h) => s + h.currentValue, 0);
   const totalInvested     = displayHoldings.reduce((s, h) => s + h.investedValue, 0);
   const totalReturnPct    = totalInvested !== 0 ? ((totalCurrentValue - totalInvested) / totalInvested) * 100 : 0;
@@ -134,6 +150,7 @@ export default function PortfolioPage() {
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 onCreateNew={handleCreateNew}
+                onDelete={handleDeletePortfolio}
               />
             )}
           </div>
@@ -202,6 +219,7 @@ export default function PortfolioPage() {
             <PortfolioTable
               holdings={displayHoldings}
               onUpdateHolding={handleUpdateHolding}
+              onBulkDelete={handleBulkDelete}
               onRefreshPrices={() => portfolio?.holdings && fetchPrices(portfolio.holdings)}
               pricesUpdatedAt={pricesUpdatedAt || undefined}
             />

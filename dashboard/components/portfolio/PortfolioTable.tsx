@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Pencil, RefreshCw, ChevronDown } from 'lucide-react';
+import { Pencil, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { HoldingEditModal } from './HoldingEditModal';
 import type { Holding } from '@/types';
 import { cn, fmtNumber } from '@/lib/utils';
 
 interface Props {
-  holdings:        Holding[];
-  onUpdateHolding: (symbol: string, updates: Partial<Holding>) => Promise<void>;
+  holdings:         Holding[];
+  onUpdateHolding:  (symbol: string, updates: Partial<Holding>) => Promise<void>;
+  onBulkDelete?:    (symbols: string[]) => Promise<void>;
   onRefreshPrices?: () => void;
   pricesUpdatedAt?: string;
 }
@@ -100,10 +102,30 @@ const SORT_COLS: { key: SortKey; label: string }[] = [
   { key: 'dailyChangePct', label: '일간변동'  },
 ];
 
-export function PortfolioTable({ holdings, onUpdateHolding, onRefreshPrices, pricesUpdatedAt }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>('currentValue');
-  const [asc,     setAsc]     = useState(false);
-  const [editing, setEditing] = useState<Holding | null>(null);
+export function PortfolioTable({ holdings, onUpdateHolding, onBulkDelete, onRefreshPrices, pricesUpdatedAt }: Props) {
+  const [sortKey,   setSortKey]   = useState<SortKey>('currentValue');
+  const [asc,       setAsc]       = useState(false);
+  const [editing,   setEditing]   = useState<Holding | null>(null);
+  const [selected,  setSelected]  = useState<Set<string>>(new Set());
+  const [deleting,  setDeleting]  = useState(false);
+
+  function toggleAll() {
+    setSelected(prev => prev.size === sorted.length ? new Set() : new Set(sorted.map(h => h.symbol)));
+  }
+  function toggleOne(symbol: string) {
+    setSelected(prev => { const n = new Set(prev); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
+  }
+  async function handleBulkDelete() {
+    if (!onBulkDelete || selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}개 종목을 삭제하시겠습니까?`)) return;
+    setDeleting(true);
+    try {
+      await onBulkDelete(Array.from(selected));
+      setSelected(new Set());
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const sorted = [...holdings].sort((a, b) => {
     const av = a[sortKey] as number;
@@ -121,7 +143,16 @@ export function PortfolioTable({ holdings, onUpdateHolding, onRefreshPrices, pri
     <>
       <div className="bg-card rounded-xl border border-border p-4 overflow-x-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-muted-foreground">보유 종목</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-muted-foreground">보유 종목</h2>
+            {selected.size > 0 && onBulkDelete && (
+              <Button size="sm" variant="destructive" className="h-7 gap-1.5 text-xs"
+                      disabled={deleting} onClick={handleBulkDelete}>
+                <Trash2 className="w-3 h-3" />
+                {deleting ? '삭제 중...' : `선택 삭제 (${selected.size})`}
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             {pricesUpdatedAt && (
               <span className="text-xs text-muted-foreground/50">가격 {pricesUpdatedAt}</span>
@@ -142,6 +173,14 @@ export function PortfolioTable({ holdings, onUpdateHolding, onRefreshPrices, pri
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-border">
+              {/* 체크박스 전체선택 */}
+              <th className="w-8 py-2 px-2 text-center">
+                <input type="checkbox"
+                  checked={selected.size === sorted.length && sorted.length > 0}
+                  onChange={toggleAll}
+                  className="accent-[#6366f1] cursor-pointer"
+                />
+              </th>
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">종목명</th>
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">섹터</th>
               <th className="text-right py-2 px-3 text-muted-foreground font-medium">현재가</th>
@@ -162,7 +201,16 @@ export function PortfolioTable({ holdings, onUpdateHolding, onRefreshPrices, pri
             {sorted.map(h => {
               const weight = totalVal > 0 ? (h.currentValue / totalVal) * 100 : 0;
               return (
-                <tr key={h.symbol} className="border-t border-border hover:bg-muted/20 transition-colors">
+                <tr key={h.symbol} className={cn('border-t border-border hover:bg-muted/20 transition-colors', selected.has(h.symbol) && 'bg-[#6366f1]/5')}>
+
+                  {/* 체크박스 */}
+                  <td className="py-2 px-2 text-center">
+                    <input type="checkbox"
+                      checked={selected.has(h.symbol)}
+                      onChange={() => toggleOne(h.symbol)}
+                      className="accent-[#6366f1] cursor-pointer"
+                    />
+                  </td>
 
                   {/* 종목명 + 코드 + 시장 */}
                   <td className="py-2 px-3">
