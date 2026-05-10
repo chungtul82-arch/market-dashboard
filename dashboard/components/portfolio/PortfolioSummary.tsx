@@ -1,11 +1,10 @@
 'use client';
 
 import { TrendingUp, TrendingDown, Wallet, BarChart2 } from 'lucide-react';
-import type { Portfolio } from '@/types';
+import type { Holding } from '@/types';
 import { cn, fmtNumber } from '@/lib/utils';
-import { toKRW, type ExchangeRates } from '@/lib/useExchangeRates';
 
-interface Props { portfolio: Portfolio; rates: ExchangeRates }
+interface Props { holdings: Holding[] }
 
 function fmtKRW(v: number) {
   if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(1)}억`;
@@ -15,14 +14,12 @@ function fmtKRW(v: number) {
 
 function fmt(v: number) { return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; }
 
-export function PortfolioSummary({ portfolio, rates }: Props) {
-  const { holdings } = portfolio;
-
-  // 환율 적용해 원화 기준 총계 재계산
-  const totalCurrentValue = holdings.reduce((s, h) => s + toKRW(h.currentValue,  h.currency, rates), 0);
-  const totalInvested     = holdings.reduce((s, h) => s + toKRW(h.investedValue, h.currency, rates), 0);
+export function PortfolioSummary({ holdings }: Props) {
+  const totalCurrentValue = holdings.reduce((s, h) => s + h.currentValue, 0);
+  const totalInvested     = holdings.reduce((s, h) => s + h.investedValue, 0);
   const totalPnl          = totalCurrentValue - totalInvested;
   const totalReturnPct    = totalInvested !== 0 ? (totalPnl / totalInvested) * 100 : 0;
+  const totalDailyPnl     = holdings.reduce((s, h) => s + (h.dailyChange ?? 0), 0);
   const positive          = totalPnl >= 0;
 
   const cards = [
@@ -48,11 +45,11 @@ export function PortfolioSummary({ portfolio, rates }: Props) {
       color: positive ? 'text-up' : 'text-down',
     },
     {
-      label: '보유 종목',
-      value: `${holdings.length}개`,
-      sub:   `USD ${rates.usd_krw.toFixed(0)}원 · RMB ${rates.cny_krw.toFixed(0)}원`,
-      icon:  BarChart2,
-      color: 'text-[#6366f1]',
+      label: '일간 손익',
+      value: `${totalDailyPnl >= 0 ? '+' : ''}${fmtKRW(totalDailyPnl)}원`,
+      sub:   `${holdings.length}개 종목`,
+      icon:  totalDailyPnl >= 0 ? TrendingUp : TrendingDown,
+      color: totalDailyPnl >= 0 ? 'text-up' : 'text-down',
     },
   ];
 

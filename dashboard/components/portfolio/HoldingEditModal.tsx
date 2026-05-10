@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { Holding } from '@/types';
+import { ALL_SECTORS, ALL_THEMES } from './PortfolioTable';
 
 interface Props {
   holding: Holding | null;
@@ -11,8 +12,6 @@ interface Props {
   onClose: () => void;
   onSave: (symbol: string, updates: Partial<Holding>) => Promise<void>;
 }
-
-const SECTORS = ['기술·IT','헬스케어','금융','금융서비스','경기소비재','필수소비재','산업재','에너지','소재','부동산','유틸리티','통신서비스','방산','반도체','기타'];
 
 export function HoldingEditModal({ holding, open, onClose, onSave }: Props) {
   const [saving, setSaving] = useState(false);
@@ -36,6 +35,8 @@ export function HoldingEditModal({ holding, open, onClose, onSave }: Props) {
       const updates: Partial<Holding> = {};
       if ('name'             in form) updates.name             = form.name;
       if ('sector'           in form) updates.sector           = form.sector;
+      if ('theme'            in form) updates.theme            = form.theme;
+      if ('market'           in form) updates.market           = form.market as Holding['market'];
       if ('quantity'         in form) updates.quantity         = Number(form.quantity);
       if ('avgPurchasePrice' in form) updates.avgPurchasePrice = Number(form.avgPurchasePrice);
       await onSave(holding.symbol, updates);
@@ -63,14 +64,37 @@ export function HoldingEditModal({ holding, open, onClose, onSave }: Props) {
             />
           </Field>
 
-          <Field label="산업섹터">
+          <Field label="섹터 (업종)">
             <select
               className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground"
               value={val('sector')}
               onChange={e => setForm(f => ({ ...f, sector: e.target.value }))}
             >
-              <option value="">선택 안 함</option>
-              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="">— 미지정</option>
+              {ALL_SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+
+          <Field label="테마">
+            <select
+              className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+              value={val('theme')}
+              onChange={e => setForm(f => ({ ...f, theme: e.target.value }))}
+            >
+              <option value="">— 미지정</option>
+              {ALL_THEMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </Field>
+
+          <Field label="시장">
+            <select
+              className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+              value={val('market')}
+              onChange={e => setForm(f => ({ ...f, market: e.target.value as Holding['market'] }))}
+            >
+              <option value="">— 미지정</option>
+              <option value="KOSPI">KOSPI</option>
+              <option value="KOSDAQ">KOSDAQ</option>
             </select>
           </Field>
 

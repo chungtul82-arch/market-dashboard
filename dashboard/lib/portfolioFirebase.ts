@@ -77,3 +77,26 @@ export async function updateHolding(portfolioId: string, symbol: string, updates
 export async function deletePortfolio(id: string): Promise<void> {
   await deleteDoc(doc(db, COLL, id));
 }
+
+export async function saveHoldings(
+  portfolioId: string,
+  holdings: Holding[],
+  name?: string,
+): Promise<void> {
+  const totalCurrentValue = holdings.reduce((s, h) => s + h.currentValue, 0);
+  const totalInvested     = holdings.reduce((s, h) => s + h.investedValue, 0);
+  const totalPnl          = totalCurrentValue - totalInvested;
+  const totalReturnPct    = totalInvested !== 0 ? (totalPnl / totalInvested) * 100 : 0;
+
+  const update: Record<string, unknown> = {
+    holdings,
+    totalCurrentValue,
+    totalInvested,
+    totalPnl,
+    totalReturnPct,
+    uploadedAt: new Date().toISOString(),
+  };
+  if (name) update.name = name;
+
+  await setDoc(doc(db, COLL, portfolioId), update, { merge: true });
+}

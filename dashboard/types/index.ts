@@ -51,8 +51,10 @@ export interface Holding {
   symbol: string;
   name?: string;
   sector?: string;
-  country?: string;    // 미국 | 한국 | 중국 | 일본 | 기타
-  currency?: 'KRW' | 'USD' | 'RMB';  // 거래 통화
+  theme?: string;
+  market?: 'KOSPI' | 'KOSDAQ';
+  country?: string;
+  currency?: 'KRW' | 'USD' | 'RMB';
   currentPrice: number;
   avgPurchasePrice: number;
   quantity: number;
@@ -62,6 +64,7 @@ export interface Holding {
   returnPct: number;
   dailyChange: number;
   dailyChangePct: number;
+  addedDate?: string;
 }
 
 export interface Portfolio {

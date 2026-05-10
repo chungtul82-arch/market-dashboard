@@ -2,9 +2,6 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { Holding } from '@/types';
-import { toKRW, type ExchangeRates } from '@/lib/useExchangeRates';
-
-interface Props { holdings: Holding[]; rates: ExchangeRates }
 
 const COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
 
@@ -14,7 +11,10 @@ function fmtKRW(v: number) {
   return v.toLocaleString();
 }
 
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: { pct: number; symbol: string } }[] }) => {
+const CustomTooltip = ({ active, payload }: {
+  active?: boolean;
+  payload?: { name: string; value: number; payload: { pct: number; symbol: string } }[];
+}) => {
   if (!active || !payload?.length) return null;
   const { name, value, payload: p } = payload[0];
   return (
@@ -27,31 +27,26 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
   );
 };
 
-export function AllocationChart({ holdings, rates }: Props) {
-  const total = holdings.reduce((s, h) => s + toKRW(h.currentValue, h.currency, rates), 0);
-  const data  = holdings.map(h => {
-    const krwVal = toKRW(h.currentValue, h.currency, rates);
-    return {
-      name:   h.name || h.symbol,
-      symbol: h.symbol,
-      value:  Math.round(krwVal),
-      pct:    total > 0 ? (krwVal / total) * 100 : 0,
-    };
-  });
+export function AllocationChart({ holdings }: { holdings: Holding[] }) {
+  const total = holdings.reduce((s, h) => s + h.currentValue, 0);
+  const data  = holdings.map(h => ({
+    name:   h.name || h.symbol,
+    symbol: h.symbol,
+    value:  Math.round(h.currentValue),
+    pct:    total > 0 ? (h.currentValue / total) * 100 : 0,
+  }));
 
   return (
     <div className="bg-card rounded-xl border border-border p-4">
       <h2 className="text-sm font-semibold text-muted-foreground mb-4">종목별 비중</h2>
-      <ResponsiveContainer width="100%" height={380}>
+      <ResponsiveContainer width="100%" height={360}>
         <PieChart>
           <Pie data={data} cx="50%" cy="38%" innerRadius={65} outerRadius={105} paddingAngle={2} dataKey="value">
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
           <Legend
-            layout="horizontal"
-            verticalAlign="bottom"
-            align="center"
+            layout="horizontal" verticalAlign="bottom" align="center"
             formatter={v => <span className="text-xs text-muted-foreground">{v}</span>}
           />
         </PieChart>
