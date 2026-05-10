@@ -1,4 +1,5 @@
 import math
+import time
 from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
@@ -74,19 +75,27 @@ def build_report_data(
     }
 
 
-def upload_report(data: dict) -> bool:
-    """/reports/{오늘날짜} + /reports/latest 에 저장. 성공 True."""
+def upload_report(data: dict, max_retries: int = 3) -> bool:
+    """/reports/{오늘날짜} + /reports/latest 에 저장. 429 시 최대 3회 재시도."""
     _init()
     db    = firestore.client()
     today = data.get("date") or datetime.today().strftime("%Y-%m-%d")
 
-    try:
-        batch = db.batch()
-        batch.set(db.collection(_COLLECTION).document("latest"), data)
-        batch.set(db.collection(_COLLECTION).document(today),    data)
-        batch.commit()
-        print(f"  [OK] Firebase 업로드: {_COLLECTION}/latest + {_COLLECTION}/{today}")
-        return True
-    except Exception as exc:
-        print(f"  [ERROR] Firebase 업로드 실패: {exc}")
-        return False
+    for attempt in range(max_retries):
+        try:
+            batch = db.batch()
+            batch.set(db.collection(_COLLECTION).document("latest"), data)
+            batch.set(db.collection(_COLLECTION).document(today),    data)
+            batch.commit()
+            print(f"  [OK] Firebase 업로드: {_COLLECTION}/latest + {_COLLECTION}/{today}")
+            return True
+        except Exception as exc:
+            err_str = str(exc)
+            if ("429" in err_str or "Quota" in err_str or "quota" in err_str) and attempt < max_retries - 1:
+                wait = 30 * (attempt + 1)  # 30s, 60s
+                print(f"  [WARN] Firebase 429 — {wait}초 후 재시도 ({attempt+1}/{max_retries})...")
+                time.sleep(wait)
+            else:
+                print(f"  [ERROR] Firebase 업로드 실패: {exc}")
+                return False
+    return False
