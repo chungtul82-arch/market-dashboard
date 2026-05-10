@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { Holding } from '@/types';
-import { ALL_SECTORS, ALL_THEMES } from './PortfolioTable';
+import { ALL_SECTORS } from './PortfolioTable';
 
 interface Props {
   holding: Holding | null;
@@ -35,7 +35,6 @@ export function HoldingEditModal({ holding, open, onClose, onSave }: Props) {
       const updates: Partial<Holding> = {};
       if ('name'             in form) updates.name             = form.name;
       if ('sector'           in form) updates.sector           = form.sector;
-      if ('theme'            in form) updates.theme            = form.theme;
       if ('market'           in form) updates.market           = form.market as Holding['market'];
       if ('quantity'         in form) updates.quantity         = Number(form.quantity);
       if ('avgPurchasePrice' in form) updates.avgPurchasePrice = Number(form.avgPurchasePrice);
@@ -72,17 +71,6 @@ export function HoldingEditModal({ holding, open, onClose, onSave }: Props) {
             >
               <option value="">— 미지정</option>
               {ALL_SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
-
-          <Field label="테마">
-            <select
-              className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground"
-              value={val('theme')}
-              onChange={e => setForm(f => ({ ...f, theme: e.target.value }))}
-            >
-              <option value="">— 미지정</option>
-              {ALL_THEMES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </Field>
 

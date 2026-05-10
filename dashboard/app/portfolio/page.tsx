@@ -8,17 +8,13 @@ import { PortfolioSelector }       from '@/components/portfolio/PortfolioSelecto
 import { PortfolioSummary }        from '@/components/portfolio/PortfolioSummary';
 import { PortfolioTable }          from '@/components/portfolio/PortfolioTable';
 import { AllocationChart }         from '@/components/portfolio/AllocationChart';
-import { SectorAllocationChart, ThemeAllocationChart } from '@/components/portfolio/SectorAllocationChart';
+import { SectorAllocationChart }   from '@/components/portfolio/SectorAllocationChart';
 import { PortfolioJsonInput }      from '@/components/portfolio/PortfolioJsonInput';
 import { PerformanceChart }        from '@/components/portfolio/PerformanceChart';
-import { PortfolioRecommendation } from '@/components/portfolio/PortfolioRecommendation';
 import {
   listPortfolios, subscribePortfolio, updateHolding, createPortfolio, saveHoldings,
 } from '@/lib/portfolioFirebase';
-import { useExchangeRates } from '@/lib/useExchangeRates';
 import type { Portfolio, PortfolioMeta, Holding } from '@/types';
-
-type Tab = '현황' | 'AI추천';
 
 interface BenchmarkPoint { date: string; v: number }
 interface Benchmarks { kospi: BenchmarkPoint[] | null; nasdaq100: BenchmarkPoint[] | null }
@@ -29,15 +25,10 @@ export default function PortfolioPage() {
   const [portfolio,     setPortfolio]     = useState<Portfolio | null>(null);
   const [loading,       setLoading]       = useState(true);
   const [showInput,     setShowInput]     = useState(false);
-  const [activeTab,     setActiveTab]     = useState<Tab>('현황');
 
-  // 라이브 가격 상태
-  const [liveHoldings,      setLiveHoldings]      = useState<Holding[] | null>(null);
-  const [benchmarks,        setBenchmarks]         = useState<Benchmarks>({ kospi: null, nasdaq100: null });
-  const [pricesFetchingAt,  setPricesFetchingAt]   = useState('');
-  const [pricesUpdatedAt,   setPricesUpdatedAt]    = useState('');
-
-  const rates = useExchangeRates();
+  const [liveHoldings,    setLiveHoldings]    = useState<Holding[] | null>(null);
+  const [benchmarks,      setBenchmarks]       = useState<Benchmarks>({ kospi: null, nasdaq100: null });
+  const [pricesUpdatedAt, setPricesUpdatedAt]  = useState('');
 
   useEffect(() => {
     listPortfolios().then(list => {
@@ -59,19 +50,17 @@ export default function PortfolioPage() {
     return () => unsub();
   }, [selectedId]);
 
-  // 현재가 조회
   const fetchPrices = useCallback(async (holdings: Holding[]) => {
     if (!holdings.length) return;
-    setPricesFetchingAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
     try {
       const symbols  = holdings.map(h => h.symbol);
       const markets: Record<string, string> = {};
       holdings.forEach(h => { if (h.market) markets[h.symbol] = h.market; });
 
       const res = await fetch('/api/portfolio-prices', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols, markets }),
+        body:    JSON.stringify({ symbols, markets }),
       });
       if (!res.ok) return;
       const { prices, benchmarks: bm } = await res.json();
@@ -86,25 +75,23 @@ export default function PortfolioPage() {
         const inv      = h.avgPurchasePrice * h.quantity;
         return {
           ...h,
-          market:        (live.market ?? h.market) as Holding['market'],
-          currentPrice:  curPrice,
-          currentValue:  curVal,
-          investedValue: inv,
-          pnl:           curVal - inv,
-          returnPct:     inv !== 0 ? ((curVal - inv) / inv) * 100 : 0,
-          dailyChange:   (live.changePct / 100) * curPrice * h.quantity,
+          market:         (live.market ?? h.market) as Holding['market'],
+          name:           live.name && live.name !== h.symbol ? live.name : (h.name || h.symbol),
+          currentPrice:   curPrice,
+          currentValue:   curVal,
+          investedValue:  inv,
+          pnl:            curVal - inv,
+          returnPct:      inv !== 0 ? ((curVal - inv) / inv) * 100 : 0,
+          dailyChange:    (live.changePct / 100) * curPrice * h.quantity,
           dailyChangePct: live.changePct,
         };
       });
       setLiveHoldings(updated);
       setPricesUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
-
-      // Firebase에도 최신 가격 저장 (백그라운드)
       if (selectedId) saveHoldings(selectedId, updated).catch(() => {});
     } catch { /* 조용히 실패 */ }
   }, [selectedId]);
 
-  // 포트폴리오 로드 시 가격 자동 조회
   useEffect(() => {
     if (portfolio?.holdings?.length) fetchPrices(portfolio.holdings);
   }, [portfolio]);
@@ -132,13 +119,6 @@ export default function PortfolioPage() {
   const totalCurrentValue = displayHoldings.reduce((s, h) => s + h.currentValue, 0);
   const totalInvested     = displayHoldings.reduce((s, h) => s + h.investedValue, 0);
   const totalReturnPct    = totalInvested !== 0 ? ((totalCurrentValue - totalInvested) / totalInvested) * 100 : 0;
-
-  const tabCls = (t: Tab) =>
-    `text-sm px-4 py-2 font-medium transition-colors border-b-2 ${
-      activeTab === t
-        ? 'border-[#6366f1] text-[#6366f1]'
-        : 'border-transparent text-muted-foreground hover:text-foreground'
-    }`;
 
   return (
     <main className="min-h-screen bg-background text-foreground p-4 md:p-6">
@@ -187,7 +167,7 @@ export default function PortfolioPage() {
         {!loading && !portfolio && !showInput && (
           <div className="bg-card rounded-xl border border-border p-12 text-center space-y-4">
             <p className="text-4xl">📂</p>
-            <p className="font-medium text-foreground">포트폴리오가 비어있습니다</p>
+            <p className="font-medium">포트폴리오가 비어있습니다</p>
             <p className="text-muted-foreground text-sm">JSON으로 보유 종목을 입력해 주세요</p>
             <Button onClick={() => setShowInput(true)} className="gap-2">
               <FileJson className="w-4 h-4" /> 종목 입력
@@ -195,7 +175,6 @@ export default function PortfolioPage() {
           </div>
         )}
 
-        {/* 로딩 */}
         {loading && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -205,56 +184,32 @@ export default function PortfolioPage() {
           </div>
         )}
 
-        {/* 포트폴리오 본문 */}
         {!loading && portfolio && (
-          <>
+          <div className="space-y-5">
             <PortfolioSummary holdings={displayHoldings} />
 
-            {/* 탭 */}
-            <div className="flex border-b border-border gap-0">
-              <button className={tabCls('현황')}  onClick={() => setActiveTab('현황')}>📊 현황</button>
-              <button className={tabCls('AI추천')} onClick={() => setActiveTab('AI추천')}>🎯 AI 추천</button>
+            <PerformanceChart
+              kospi={benchmarks.kospi}
+              nasdaq100={benchmarks.nasdaq100}
+              totalReturnPct={totalReturnPct}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <AllocationChart       holdings={displayHoldings} />
+              <SectorAllocationChart holdings={displayHoldings} />
             </div>
 
-            {/* 현황 탭 */}
-            {activeTab === '현황' && (
-              <div className="space-y-5">
-                {/* 벤치마크 비교 */}
-                <PerformanceChart
-                  kospi={benchmarks.kospi}
-                  nasdaq100={benchmarks.nasdaq100}
-                  totalReturnPct={totalReturnPct}
-                />
-
-                {/* 배분 차트 */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <AllocationChart       holdings={displayHoldings} />
-                  <SectorAllocationChart holdings={displayHoldings} />
-                  <ThemeAllocationChart  holdings={displayHoldings} />
-                </div>
-
-                {/* 보유 종목 테이블 */}
-                <PortfolioTable
-                  holdings={displayHoldings}
-                  onUpdateHolding={handleUpdateHolding}
-                  onRefreshPrices={() => fetchPrices(portfolio.holdings)}
-                  pricesUpdatedAt={pricesUpdatedAt || pricesFetchingAt ? `${pricesUpdatedAt || '조회 중'}` : undefined}
-                />
-              </div>
-            )}
-
-            {/* AI 추천 탭 */}
-            {activeTab === 'AI추천' && (
-              <PortfolioRecommendation
-                holdings={displayHoldings}
-                rates={rates}
-              />
-            )}
-          </>
+            <PortfolioTable
+              holdings={displayHoldings}
+              onUpdateHolding={handleUpdateHolding}
+              onRefreshPrices={() => portfolio?.holdings && fetchPrices(portfolio.holdings)}
+              pricesUpdatedAt={pricesUpdatedAt || undefined}
+            />
+          </div>
         )}
 
         <p className="text-center text-xs text-muted-foreground/40 pb-4">
-          가격: Yahoo Finance 실시간 조회 · 벤치마크: KOSPI(^KS11) · NASDAQ100(^NDX)
+          가격: Yahoo Finance 실시간 · 벤치마크: KOSPI(^KS11) · NASDAQ100(^NDX)
         </p>
       </div>
     </main>

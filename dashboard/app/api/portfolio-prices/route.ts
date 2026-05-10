@@ -3,10 +3,12 @@ import { NextResponse } from 'next/server';
 const H = { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' };
 
 async function fetchKRXPrice(symbol: string, market?: string) {
+  // KRX 코드는 6자리 — 짧으면 앞에 0 패딩
+  const code = /^\d+$/.test(symbol) ? symbol.padStart(6, '0') : symbol;
   const candidates =
-    market === 'KOSDAQ' ? [`${symbol}.KQ`] :
-    market === 'KOSPI'  ? [`${symbol}.KS`] :
-    [`${symbol}.KS`, `${symbol}.KQ`];
+    market === 'KOSDAQ' ? [`${code}.KQ`] :
+    market === 'KOSPI'  ? [`${code}.KS`] :
+    [`${code}.KS`, `${code}.KQ`];
 
   for (const sym of candidates) {
     try {

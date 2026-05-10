@@ -22,12 +22,6 @@ export const ALL_SECTORS = [
   '음식료', '유통·소비재', '수소·친환경', '통신', '기타',
 ];
 
-export const ALL_THEMES = [
-  'AI반도체', 'HBM', 'AI에이전트', '로봇', '원자력', 'SMR',
-  'K방산', '방산수출', '조선', '전력인프라', '데이터센터',
-  '바이오신약', '의료기기', '2차전지', '전고체전지',
-  '재건특수', '수주산업', '배당주', '가치주',
-];
 
 function fmtKRW(v: number) {
   if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(2)}억`;
@@ -150,7 +144,6 @@ export function PortfolioTable({ holdings, onUpdateHolding, onRefreshPrices, pri
             <tr className="border-b border-border">
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">종목명</th>
               <th className="text-left py-2 px-3 text-muted-foreground font-medium">섹터</th>
-              <th className="text-left py-2 px-3 text-muted-foreground font-medium">테마</th>
               <th className="text-right py-2 px-3 text-muted-foreground font-medium">현재가</th>
               <th className="text-right py-2 px-3 text-muted-foreground font-medium">매입가</th>
               <th className="text-right py-2 px-3 text-muted-foreground font-medium">수량</th>
@@ -194,24 +187,6 @@ export function PortfolioTable({ holdings, onUpdateHolding, onRefreshPrices, pri
                         <span className={cn(
                           'text-xs px-2 py-0.5 rounded-full border',
                           v && v !== '기타' ? 'border-border bg-muted text-muted-foreground' : 'border-dashed border-muted-foreground/30 text-muted-foreground/50',
-                        )}>
-                          {v || '미지정'}
-                        </span>
-                      )}
-                      renderItem={v => v}
-                    />
-                  </td>
-
-                  {/* 테마 */}
-                  <td className="py-2 px-3">
-                    <InlinePicker
-                      value={h.theme as string}
-                      options={ALL_THEMES}
-                      onSave={theme => onUpdateHolding(h.symbol, { theme })}
-                      renderLabel={v => (
-                        <span className={cn(
-                          'text-xs px-2 py-0.5 rounded-full border',
-                          v ? 'border-[#6366f1]/40 bg-[#6366f1]/10 text-[#a5b4fc]' : 'border-dashed border-muted-foreground/30 text-muted-foreground/50',
                         )}>
                           {v || '미지정'}
                         </span>
