@@ -13,7 +13,7 @@ import { PortfolioJsonInput }      from '@/components/portfolio/PortfolioJsonInp
 import { PerformanceChart }        from '@/components/portfolio/PerformanceChart';
 import {
   subscribeAllPortfolios, subscribePortfolio,
-  updateHolding, createPortfolio, saveHoldings, deleteHoldings,
+  updateHolding, createPortfolio, deleteHoldings,
 } from '@/lib/portfolioFirebase';
 import type { Portfolio, PortfolioMeta, Holding } from '@/types';
 
@@ -127,7 +127,6 @@ export default function PortfolioPage() {
       });
       setLiveHoldings(updated);
       setPricesUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
-      if (selectedId) saveHoldings(selectedId, updated).catch(() => {});
     } catch { /* silent */ }
   }, [selectedId]);
 
