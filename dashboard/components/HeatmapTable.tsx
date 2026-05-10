@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { SectorData, Signal } from '@/types';
 import { getReturnColor, getRsColor, fmt, cn, foreignIcon } from '@/lib/utils';
 import { SECTOR_CONSTITUENTS } from '@/lib/sectorConstituents';
-import { SECTOR_ETFS, ETF_NAMES } from '@/lib/sectorEtfs';
+import { SECTOR_SOURCE_LABEL, IS_INDEX_SECTOR, SECTOR_ETFS, ETF_NAMES } from '@/lib/sectorEtfs';
 
 interface Props {
   sectors: Record<string, SectorData>;
@@ -106,17 +106,25 @@ function SectorModal({
           ))}
         </div>
 
-        {/* 참조 ETF */}
-        {SECTOR_ETFS[sector] && (
+        {/* 데이터 소스 */}
+        {SECTOR_SOURCE_LABEL[sector] && (
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">참조 ETF</p>
-            <div className="flex flex-wrap gap-1">
-              {SECTOR_ETFS[sector].map(ticker => (
-                <span key={ticker} className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-                  {ETF_NAMES[ticker] ?? ticker}
-                </span>
-              ))}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {IS_INDEX_SECTOR[sector] ? '📊 KRX 공식 인덱스' : '📈 대표 ETF'}
+            </p>
+            <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono">
+              {SECTOR_SOURCE_LABEL[sector]}
+            </span>
+          </div>
+        )}
+        {/* ETF 기반 섹터만 ETF 리스트 표시 */}
+        {!IS_INDEX_SECTOR[sector] && SECTOR_ETFS[sector] && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {SECTOR_ETFS[sector].map(ticker => (
+              <span key={ticker} className="text-xs px-2 py-0.5 rounded bg-muted/60 text-muted-foreground/70 font-mono">
+                {ETF_NAMES[ticker] ?? ticker}
+              </span>
+            ))}
           </div>
         )}
 

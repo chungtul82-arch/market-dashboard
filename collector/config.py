@@ -1,83 +1,58 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # collector/.env 파일에서 환경변수 읽기
+load_dotenv()
 
-# ── 텔레그램 ──────────────────────────────────────────────
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8301921027:AAElzWo9-1S1TcwjN6UrWJmotCRGO5czVA4")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+DASHBOARD_URL      = os.getenv("DASHBOARD_URL", "")
 
-# ── Vercel 대시보드 URL ───────────────────────────────────
-DASHBOARD_URL = os.getenv("DASHBOARD_URL", "")
-
-# ── Firebase ──────────────────────────────────────────────
 FIREBASE_CREDENTIAL_PATH = os.getenv(
     "FIREBASE_CREDENTIAL_PATH",
     os.path.join(os.path.dirname(__file__), "firebase-key.json"),
 )
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "stockinvest-6cea8")
 
-# ── 섹터 ETF ──────────────────────────────────────────────
-SECTOR_ETFS = {
-    # ── 테마·성장 섹터 ─────────────────────────────────
-    "AI·반도체":      ["091160.KS", "266370.KS", "381170.KS"],
-    "소부장":          ["395160.KS", "278540.KS"],
-    "전력·전기":       ["459580.KS", "396500.KS"],
-    "원자력":          ["466920.KS", "475050.KS"],
-    "방산":            ["472160.KS", "329650.KS"],
-    "중공업·조선":     ["139240.KS", "466940.KS"],
-    "재건·인프라":     ["395290.KS"],
-    "바이오":          ["244580.KS", "251340.KS"],
-    "2차전지":         ["305720.KS", "364980.KS"],
-    "로봇·자동화":     ["395840.KS"],
-    "게임·엔터":       ["244660.KS"],
-    # ── 전통 산업 섹터 ─────────────────────────────────
-    "자동차·모빌리티": ["091230.KS"],
-    "금융·은행":       ["091170.KS"],
-    "증권":            ["140700.KS"],
-    "철강·금속":       ["091220.KS"],
-    "화학":            ["099410.KS"],
-    "헬스케어":        ["266420.KS"],
-    "음식료":          ["102110.KS"],
-    "원자재":          ["139260.KS", "227830.KS"],
-    # ── 벤치마크 ─────────────────────────────────────
-    "코스피200":       ["069500.KS"],
-    "코스닥150":       ["229200.KS"],
+# ── 섹터 데이터 소스 (KRX 인덱스 우선, 없으면 대표 ETF) ──────────────
+#
+# type="index" : pykrx get_index_ohlcv_by_date(ticker, market) 사용
+# type="etf"   : yfinance download(tickers) 사용 (거래량 상위 대표 ETF 1개)
+
+SECTOR_SOURCES: dict[str, dict] = {
+    # ── KRX 공식 인덱스 기반 (8개) ─────────────────────────────────────
+    "AI·반도체":      {"type": "index", "ticker": "5300", "market": "KRX",    "label": "KRX 반도체 지수"},
+    "바이오":         {"type": "index", "ticker": "5302", "market": "KRX",    "label": "KRX 헬스케어 지수"},
+    "증권·금융":      {"type": "index", "ticker": "1156", "market": "KOSPI",  "label": "코스피200 금융 지수"},
+    "중공업·조선":    {"type": "index", "ticker": "1152", "market": "KOSPI",  "label": "코스피200 중공업 지수"},
+    "화학":           {"type": "index", "ticker": "1154", "market": "KOSPI",  "label": "코스피200 에너지화학 지수"},
+    "코스닥150":      {"type": "index", "ticker": "2003", "market": "KOSDAQ", "label": "코스닥150 지수"},
+    "코리아밸류업":   {"type": "index", "ticker": "5043", "market": "KRX",    "label": "코리아밸류업 지수"},
+    "코스피200":      {"type": "index", "ticker": "1028", "market": "KOSPI",  "label": "코스피200 지수"},
+
+    # ── 대표 ETF 기반 (KRX 공식 인덱스 없음, 10개) ──────────────────────
+    "방산":           {"type": "etf", "tickers": ["472160.KS"], "label": "TIGER 방산&우주"},
+    "원자력":         {"type": "etf", "tickers": ["466920.KS"], "label": "KODEX 원자력"},
+    "전력·전기":      {"type": "etf", "tickers": ["459580.KS"], "label": "TIGER 전력설비"},
+    "2차전지":        {"type": "etf", "tickers": ["305720.KS"], "label": "KODEX 2차전지산업"},
+    "로봇·자동화":    {"type": "etf", "tickers": ["395840.KS"], "label": "TIGER 로봇&AI"},
+    "재건·인프라":    {"type": "etf", "tickers": ["395290.KS"], "label": "TIGER 건설기계"},
+    "소부장":         {"type": "etf", "tickers": ["395160.KS"], "label": "TIGER 소재소부장"},
+    "게임·엔터":      {"type": "etf", "tickers": ["244660.KS"], "label": "KODEX 게임&엔터"},
+    "자동차":         {"type": "etf", "tickers": ["091230.KS"], "label": "KODEX 자동차"},
+    "철강·금속":      {"type": "etf", "tickers": ["091220.KS"], "label": "KODEX 철강"},
 }
 
-# ── 섹터 ETF 이름 매핑 (히트맵 표기용) ───────────────────
-ETF_NAMES: dict[str, str] = {
-    "091160.KS": "KODEX 반도체",
-    "266370.KS": "KODEX AI반도체핵심장비",
-    "381170.KS": "HANARO AI반도체",
-    "395160.KS": "TIGER 소재소부장",
-    "278540.KS": "KODEX 소재",
-    "459580.KS": "TIGER 전력설비",
-    "396500.KS": "KODEX K-전력핵심설비",
-    "466920.KS": "KODEX 원자력",
-    "475050.KS": "TIGER 원자력테마",
-    "472160.KS": "TIGER 방산&우주",
-    "329650.KS": "KODEX K-방산&우주",
-    "139240.KS": "KODEX 조선",
-    "466940.KS": "TIGER 조선해운",
-    "395290.KS": "TIGER 건설기계",
-    "244580.KS": "KODEX 바이오",
-    "251340.KS": "TIGER 헬스케어",
-    "305720.KS": "KODEX 2차전지산업",
-    "364980.KS": "TIGER 2차전지테마",
-    "395840.KS": "TIGER 로봇&AI",
-    "244660.KS": "KODEX 게임&엔터테인먼트",
-    "091230.KS": "KODEX 자동차",
-    "091170.KS": "KODEX 은행",
-    "140700.KS": "KODEX 증권",
-    "091220.KS": "KODEX 철강",
-    "099410.KS": "KODEX 화학",
-    "266420.KS": "KODEX 건강관리",
-    "102110.KS": "TIGER 200 음식료품",
-    "139260.KS": "KODEX 구리선물(H)",
-    "227830.KS": "KODEX 원자재",
-    "069500.KS": "KODEX 200",
-    "229200.KS": "KODEX 코스닥150",
+# 외국인 순매수 조회용 — ETF 기반 섹터만 (인덱스는 개별 종목 코드 없음)
+SECTOR_ETFS: dict[str, list[str]] = {
+    name: src["tickers"]
+    for name, src in SECTOR_SOURCES.items()
+    if src.get("type") == "etf"
+}
+
+# 섹터 레이블 (히트맵 모달 표시용)
+SECTOR_LABELS: dict[str, str] = {
+    name: src.get("label", name)
+    for name, src in SECTOR_SOURCES.items()
 }
 
 PERIOD_SHORT = 5
