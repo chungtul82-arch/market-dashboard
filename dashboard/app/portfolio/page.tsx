@@ -12,7 +12,8 @@ import { SectorAllocationChart }   from '@/components/portfolio/SectorAllocation
 import { PortfolioJsonInput }      from '@/components/portfolio/PortfolioJsonInput';
 import { PerformanceChart }        from '@/components/portfolio/PerformanceChart';
 import {
-  listPortfolios, subscribePortfolio, updateHolding, createPortfolio, saveHoldings, deleteHoldings,
+  subscribeAllPortfolios, subscribePortfolio,
+  updateHolding, createPortfolio, saveHoldings, deleteHoldings,
 } from '@/lib/portfolioFirebase';
 import type { Portfolio, PortfolioMeta, Holding } from '@/types';
 
@@ -27,19 +28,56 @@ export default function PortfolioPage() {
   const [showInput,     setShowInput]     = useState(false);
 
   const [liveHoldings,    setLiveHoldings]    = useState<Holding[] | null>(null);
-  const [benchmarks,      setBenchmarks]       = useState<Benchmarks>({ kospi: null, nasdaq100: null });
-  const [pricesUpdatedAt, setPricesUpdatedAt]  = useState('');
+  const [benchmarks,      setBenchmarks]      = useState<Benchmarks>({ kospi: null, nasdaq100: null });
+  const [pricesUpdatedAt, setPricesUpdatedAt] = useState('');
 
+  // ── 포트폴리오 목록: 실시간 구독 ─────────────────────────────────
   useEffect(() => {
-    listPortfolios().then(list => {
-      setPortfolioList(list);
-      if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
-      else setLoading(false);
+    let initialFired = false;
+    const unsub = subscribeAllPortfolios(list => {
+      const sorted: PortfolioMeta[] = list
+        .filter(p => p.id)
+        .map(p => ({
+          id:                p.id!,
+          name:              p.name || '이름 없음',
+          createdAt:         p.createdAt || '',
+          totalCurrentValue: p.totalCurrentValue || 0,
+          totalReturnPct:    p.totalReturnPct || 0,
+        }))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+      setPortfolioList(sorted);
+
+      if (!initialFired) {
+        initialFired = true;
+        if (sorted.length === 0) {
+          setLoading(false);
+        } else {
+          setSelectedId(id => id ?? sorted[0].id);
+        }
+      } else {
+        // 목록 변경 시 선택된 포트폴리오가 사라졌으면 다른 것으로 전환
+        setSelectedId(prev => {
+          if (!prev) return sorted.length > 0 ? sorted[0].id : null;
+          if (!sorted.find(m => m.id === prev)) {
+            // 삭제된 포트폴리오 — 다음 항목 선택 or null
+            return sorted.length > 0 ? sorted[0].id : null;
+          }
+          return prev;
+        });
+      }
     });
-  }, []);
+    return unsub;
+  }, []);  // 마운트 1회만
 
+  // ── 선택된 포트폴리오: 실시간 구독 ──────────────────────────────
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      setPortfolio(null);
+      setLiveHoldings(null);
+      setLoading(false);
+      return;
+    }
     setPortfolio(null);
     setLiveHoldings(null);
     setLoading(true);
@@ -50,6 +88,7 @@ export default function PortfolioPage() {
     return () => unsub();
   }, [selectedId]);
 
+  // ── 현재가 조회 ───────────────────────────────────────────────
   const fetchPrices = useCallback(async (holdings: Holding[]) => {
     if (!holdings.length) return;
     try {
@@ -89,48 +128,49 @@ export default function PortfolioPage() {
       setLiveHoldings(updated);
       setPricesUpdatedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
       if (selectedId) saveHoldings(selectedId, updated).catch(() => {});
-    } catch { /* 조용히 실패 */ }
+    } catch { /* silent */ }
   }, [selectedId]);
 
+  // 포트폴리오 구독 변경 → 가격 자동 조회
   useEffect(() => {
     if (portfolio?.holdings?.length) fetchPrices(portfolio.holdings);
   }, [portfolio]);
 
   const displayHoldings = liveHoldings ?? portfolio?.holdings ?? [];
 
-  const refreshList = useCallback(async (newId?: string) => {
-    const list = await listPortfolios();
-    setPortfolioList(list);
-    if (newId) setSelectedId(newId);
-  }, []);
-
+  // ── 핸들러 ─────────────────────────────────────────────────
   async function handleCreateNew() {
     const name = prompt('새 포트폴리오 이름:');
     if (!name?.trim()) return;
     const id = await createPortfolio(name.trim());
-    await refreshList(id);
+    setSelectedId(id);
   }
 
   async function handleUpdateHolding(symbol: string, updates: Partial<Holding>) {
     if (!selectedId) return;
     await updateHolding(selectedId, symbol, updates);
+    // subscribePortfolio가 자동으로 portfolio 업데이트 → fetchPrices 트리거
   }
 
   async function handleBulkDelete(symbols: string[]) {
     if (!selectedId) return;
+    setLiveHoldings(null);  // 즉시 UI에서 제거 효과
     await deleteHoldings(selectedId, symbols);
+    // subscribePortfolio 자동 반영 → fetchPrices 재실행
   }
 
-  async function handleDeletePortfolio(id: string) {
-    const remaining = portfolioList.filter(p => p.id !== id);
-    const list = await listPortfolios();
-    setPortfolioList(list);
-    if (remaining.length === 0) {
-      setSelectedId(null);
-      setPortfolio(null);
-      setLiveHoldings(null);
-    }
+  function handleDeletePortfolio(_id: string) {
+    // subscribeAllPortfolios가 목록을 자동 갱신하고 selectedId를 재조정
+    // 여기서는 포트폴리오 뷰 상태만 즉시 초기화
+    setPortfolio(null);
+    setLiveHoldings(null);
   }
+
+  // JSON 입력 후 새 포트폴리오 선택
+  const onJsonSaved = useCallback((id: string) => {
+    setSelectedId(id);
+    setShowInput(false);
+  }, []);
 
   const totalCurrentValue = displayHoldings.reduce((s, h) => s + h.currentValue, 0);
   const totalInvested     = displayHoldings.reduce((s, h) => s + h.investedValue, 0);
@@ -155,7 +195,7 @@ export default function PortfolioPage() {
             )}
           </div>
           <div className="flex gap-2">
-            {portfolioList.length === 0 && (
+            {portfolioList.length === 0 && !loading && (
               <Button size="sm" className="gap-2" onClick={handleCreateNew}>
                 <Plus className="w-4 h-4" /> 새 포트폴리오
               </Button>
@@ -175,13 +215,13 @@ export default function PortfolioPage() {
         {showInput && (
           <PortfolioJsonInput
             portfolios={portfolioList}
-            onSaved={id => { refreshList(id); setShowInput(false); }}
+            onSaved={onJsonSaved}
             onClose={() => setShowInput(false)}
           />
         )}
 
         {/* 빈 상태 */}
-        {!loading && !portfolio && !showInput && (
+        {!loading && portfolioList.length === 0 && !showInput && (
           <div className="bg-card rounded-xl border border-border p-12 text-center space-y-4">
             <p className="text-4xl">📂</p>
             <p className="font-medium">포트폴리오가 비어있습니다</p>
@@ -192,6 +232,7 @@ export default function PortfolioPage() {
           </div>
         )}
 
+        {/* 로딩 */}
         {loading && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -201,6 +242,7 @@ export default function PortfolioPage() {
           </div>
         )}
 
+        {/* 포트폴리오 본문 */}
         {!loading && portfolio && (
           <div className="space-y-5">
             <PortfolioSummary holdings={displayHoldings} />

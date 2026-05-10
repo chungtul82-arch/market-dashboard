@@ -34,7 +34,8 @@ SECTOR_SOURCES: dict[str, dict] = {
     "원자력":         {"type": "etf", "tickers": ["466920.KS"], "label": "KODEX 원자력"},
     "전력·전기":      {"type": "etf", "tickers": ["459580.KS"], "label": "TIGER 전력설비"},
     "2차전지":        {"type": "etf", "tickers": ["305720.KS"], "label": "KODEX 2차전지산업"},
-    "로봇·자동화":    {"type": "etf", "tickers": ["395840.KS"], "label": "TIGER 로봇&AI"},
+    # 로봇·자동화: 395840.KS(TIGER 로봇&AI)가 Yahoo Finance·pykrx 미지원 → 잠정 제외
+    # "로봇·자동화": {"type": "etf", "tickers": ["395840.KS"], "label": "TIGER 로봇&AI"},
     "재건·인프라":    {"type": "etf", "tickers": ["395290.KS"], "label": "TIGER 건설기계"},
     "소부장":         {"type": "etf", "tickers": ["395160.KS"], "label": "TIGER 소재소부장"},
     "게임·엔터":      {"type": "etf", "tickers": ["244660.KS"], "label": "KODEX 게임&엔터"},
