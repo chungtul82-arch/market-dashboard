@@ -3,6 +3,7 @@
   python main.py                  # 일반 실행
   python main.py --now            # 즉시 실행 (테스트용)
   python main.py --screener-only  # 스크리너만 실행
+  python main.py --index-only     # 인덱스 추세만 실행
 """
 import sys
 import os
@@ -18,6 +19,22 @@ from firebase_uploader import build_report_data, upload_report, _init as firebas
 from firebase_admin import firestore
 from portfolio_updater import update_portfolio_prices
 from telegram_bot import send_daily_notification, send_text
+
+
+def run_index_only() -> None:
+    print("=== 인덱스 추세 단독 실행 ===")
+    try:
+        firebase_init()
+        db = firestore.client()
+        from index_collector import collect_index_data, save_to_firebase as save_idx
+        indices = collect_index_data(db)
+        if indices:
+            save_idx(db, indices)
+        print(f"=== 인덱스 완료: {len(indices)}개 ===")
+    except Exception:
+        err = traceback.format_exc()
+        print(f"[ERROR]\n{err}")
+        sys.exit(1)
 
 
 def run_screener_only() -> None:
@@ -85,6 +102,15 @@ def run() -> None:
         except Exception:
             print(f"  [WARN] 스크리너 실패 (파이프라인 계속)\n{traceback.format_exc()}")
 
+        print("[+] 인덱스 추세 수집...")
+        try:
+            from index_collector import collect_index_data, save_to_firebase as save_idx
+            idx_data = collect_index_data(db)
+            if idx_data:
+                save_idx(db, idx_data)
+        except Exception:
+            print(f"  [WARN] 인덱스 추세 실패 (파이프라인 계속)\n{traceback.format_exc()}")
+
         send_daily_notification(report_data)
 
         print("=== 완료 ===")
@@ -103,9 +129,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--now",           action="store_true", help="즉시 실행")
     parser.add_argument("--screener-only", action="store_true", help="스크리너만 실행")
+    parser.add_argument("--index-only",    action="store_true", help="인덱스 추세만 실행")
     args = parser.parse_args()
 
     if args.screener_only:
         run_screener_only()
+    elif args.index_only:
+        run_index_only()
     else:
         run()

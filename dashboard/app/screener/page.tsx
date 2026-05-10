@@ -5,10 +5,12 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeScreener } from '@/lib/screenerFirebase';
 import type { ScreenerData, ScreenerFilter as FilterState, ScreenerStock } from '@/types/screener';
-import { ScreenerFilter } from '@/components/screener/ScreenerFilter';
-import { StockCard } from '@/components/screener/StockCard';
-import { LeadingSectorBar } from '@/components/screener/LeadingSectorBar';
-import { ScoringGuide } from '@/components/screener/ScoringGuide';
+import { ScreenerFilter }    from '@/components/screener/ScreenerFilter';
+import { StockCard }          from '@/components/screener/StockCard';
+import { LeadingSectorBar }   from '@/components/screener/LeadingSectorBar';
+import { ScoringGuide }       from '@/components/screener/ScoringGuide';
+import { IndexTrendChart }    from '@/components/screener/IndexTrendChart';
+import { EtfSignalCards }     from '@/components/screener/EtfSignalCards';
 
 const DEFAULT_FILTER: FilterState = {
   grade: 'ALL',
@@ -90,6 +92,22 @@ export default function ScreenerPage() {
       <div>
         <h1 className="text-xl font-bold">🎯 주도주 스크리너</h1>
         <p className="text-sm text-muted-foreground mt-0.5">박병창 매매전략 기반 · 스코어링 최대 17점</p>
+      </div>
+
+      {/* 인덱스 추세 비교 */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">📈 인덱스 추세 비교</h2>
+        <IndexTrendChart />
+      </section>
+
+      {/* ETF 편입 신호 */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">🎯 ETF 편입 신호</h2>
+        <EtfSignalCards />
+      </section>
+
+      <div className="border-t border-border pt-2">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">🔍 주도주 스크리너</h2>
       </div>
 
       {/* Sector RS */}
