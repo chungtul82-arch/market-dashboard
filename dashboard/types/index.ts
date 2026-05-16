@@ -36,6 +36,18 @@ export interface MarketIndices {
   vix?:     MarketIndex;
   usd_krw?: MarketIndex;
   cny_krw?: MarketIndex;
+  wti?:     MarketIndex;
+  us10y?:   MarketIndex;
+}
+
+export interface TopVolumeStock {
+  ticker:      string;
+  name:        string;
+  market:      string;
+  close:       number;
+  change_pct:  number;
+  volume:      number;
+  trade_value: number;
 }
 
 export interface Snapshot {
@@ -45,6 +57,7 @@ export interface Snapshot {
   sectors: Record<string, SectorData>;
   signals: Signal[];
   summary?: Summary;
+  top_volume?: TopVolumeStock[];
 }
 
 export interface Holding {

@@ -8,13 +8,14 @@ import { MarketSummary }                       from '@/components/MarketSummary'
 import { HeatmapTable, HeatmapSkeleton }       from '@/components/HeatmapTable';
 import { RotationSignals, SignalsSkeleton }     from '@/components/RotationSignals';
 import { SectorChart, ChartSkeleton }          from '@/components/SectorChart';
+import { TopVolumeList }                        from '@/components/TopVolumeList';
 import { Skeleton }                             from '@/components/ui/skeleton';
 import type { Snapshot }                        from '@/types';
 
 function MarketSummarySkeleton() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {[...Array(4)].map((_, i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {[...Array(6)].map((_, i) => (
         <div key={i} className="bg-card rounded-xl border border-border p-4 space-y-2">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-7 w-28" />
@@ -83,7 +84,7 @@ export default function Page() {
           </div>
         </div>
 
-        {/* ── 시황 요약 (4개 카드) ── */}
+        {/* ── 시황 요약 (6개 카드) ── */}
         {loading
           ? <MarketSummarySkeleton />
           : <MarketSummary indices={snapshot?.market_indices} />
@@ -110,6 +111,14 @@ export default function Page() {
           ? <ChartSkeleton />
           : snapshot && <SectorChart sectors={snapshot.sectors} />
         }
+
+        {/* ── 거래량 상위 30 ── */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            📊 거래대금 상위 30
+          </h2>
+          <TopVolumeList stocks={snapshot?.top_volume} />
+        </section>
 
         {/* ── 푸터 ── */}
         <p className="text-center text-xs text-muted-foreground/40 pb-4">

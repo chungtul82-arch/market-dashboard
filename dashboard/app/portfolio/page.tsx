@@ -33,13 +33,12 @@ export default function PortfolioPage() {
 
   // ── 포트폴리오 목록: 실시간 구독 ─────────────────────────────────
   useEffect(() => {
-    let initialFired = false;
     const unsub = subscribeAllPortfolios(list => {
       const sorted: PortfolioMeta[] = list
-        .filter(p => p.id)
+        .filter(p => p.id && p.name)   // 이름 없는 고아 문서 제외
         .map(p => ({
           id:                p.id!,
-          name:              p.name || '이름 없음',
+          name:              p.name,
           createdAt:         p.createdAt || '',
           totalCurrentValue: p.totalCurrentValue || 0,
           totalReturnPct:    p.totalReturnPct || 0,
@@ -47,43 +46,25 @@ export default function PortfolioPage() {
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
       setPortfolioList(sorted);
+      setLoading(false);
 
-      if (!initialFired) {
-        initialFired = true;
-        if (sorted.length === 0) {
-          setLoading(false);
-        } else {
-          setSelectedId(id => id ?? sorted[0].id);
-        }
-      } else {
-        // 목록 변경 시 선택된 포트폴리오가 사라졌으면 다른 것으로 전환
-        setSelectedId(prev => {
-          if (!prev) return sorted.length > 0 ? sorted[0].id : null;
-          if (!sorted.find(m => m.id === prev)) {
-            // 삭제된 포트폴리오 — 다음 항목 선택 or null
-            return sorted.length > 0 ? sorted[0].id : null;
-          }
-          return prev;
-        });
-      }
+      // 현재 선택이 없거나 삭제된 경우 첫 번째로 자동 전환
+      setSelectedId(prev => {
+        if (sorted.length === 0) return null;
+        if (!prev || !sorted.find(m => m.id === prev)) return sorted[0].id;
+        return prev;
+      });
     });
     return unsub;
-  }, []);  // 마운트 1회만
+  }, []);
 
   // ── 선택된 포트폴리오: 실시간 구독 ──────────────────────────────
   useEffect(() => {
-    if (!selectedId) {
-      setPortfolio(null);
-      setLiveHoldings(null);
-      setLoading(false);
-      return;
-    }
     setPortfolio(null);
     setLiveHoldings(null);
-    setLoading(true);
+    if (!selectedId) return;
     const unsub = subscribePortfolio(selectedId, p => {
       setPortfolio(p);
-      setLoading(false);
     });
     return () => unsub();
   }, [selectedId]);
@@ -153,16 +134,8 @@ export default function PortfolioPage() {
 
   async function handleBulkDelete(symbols: string[]) {
     if (!selectedId) return;
-    setLiveHoldings(null);  // 즉시 UI에서 제거 효과
-    await deleteHoldings(selectedId, symbols);
-    // subscribePortfolio 자동 반영 → fetchPrices 재실행
-  }
-
-  function handleDeletePortfolio(_id: string) {
-    // subscribeAllPortfolios가 목록을 자동 갱신하고 selectedId를 재조정
-    // 여기서는 포트폴리오 뷰 상태만 즉시 초기화
-    setPortfolio(null);
     setLiveHoldings(null);
+    await deleteHoldings(selectedId, symbols);
   }
 
   // JSON 입력 후 새 포트폴리오 선택
@@ -189,7 +162,6 @@ export default function PortfolioPage() {
                 selectedId={selectedId}
                 onSelect={setSelectedId}
                 onCreateNew={handleCreateNew}
-                onDelete={handleDeletePortfolio}
               />
             )}
           </div>
@@ -231,7 +203,7 @@ export default function PortfolioPage() {
           </div>
         )}
 
-        {/* 로딩 */}
+        {/* 로딩 — 목록은 왔지만 선택 포트폴리오 아직 미도착 */}
         {loading && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -242,7 +214,7 @@ export default function PortfolioPage() {
         )}
 
         {/* 포트폴리오 본문 */}
-        {!loading && portfolio && (
+        {portfolio && (
           <div className="space-y-5">
             <PortfolioSummary holdings={displayHoldings} />
 

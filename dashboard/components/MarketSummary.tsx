@@ -44,19 +44,23 @@ interface CardDef {
   label: string;
   unit?: string;
   decimals?: number;
+  suffix?: string;
+  prefix?: string;
 }
 
 const CARDS: CardDef[] = [
-  { key: 'kospi',   label: '코스피',   decimals: 2 },
-  { key: 'kosdaq',  label: '코스닥',   decimals: 2 },
-  { key: 'vix',     label: 'VIX 공포지수', decimals: 2 },
-  { key: 'usd_krw', label: '달러/원',  decimals: 1 },
+  { key: 'kospi',   label: '코스피',        decimals: 2 },
+  { key: 'kosdaq',  label: '코스닥',        decimals: 2 },
+  { key: 'usd_krw', label: '달러/원',       decimals: 1 },
+  { key: 'vix',     label: 'VIX 공포지수',  decimals: 2 },
+  { key: 'wti',     label: 'WTI 원유',      decimals: 2, prefix: '$' },
+  { key: 'us10y',   label: '미국 10년물',   decimals: 3, suffix: '%' },
 ];
 
 export function MarketSummary({ indices }: Props) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {CARDS.map(({ key, label, decimals = 2 }) => {
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {CARDS.map(({ key, label, decimals = 2, suffix, prefix }) => {
         const idx = indices?.[key];
 
         if (!idx) {
@@ -81,7 +85,7 @@ export function MarketSummary({ indices }: Props) {
             </div>
 
             <p className="font-num text-xl font-bold text-foreground leading-tight">
-              {fmtNumber(idx.value, decimals)}
+              {prefix}{fmtNumber(idx.value, decimals)}{suffix}
             </p>
 
             <div className="flex items-center gap-2 mt-0.5 mb-2">

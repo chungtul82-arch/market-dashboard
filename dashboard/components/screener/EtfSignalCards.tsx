@@ -95,8 +95,9 @@ export function EtfSignalCards() {
     getDoc(doc(db, 'index-trends', 'latest'))
       .then(snap => {
         if (snap.exists()) setIndices(snap.data().indices ?? []);
+        else setIndices([]);
       })
-      .catch(() => {})
+      .catch(() => setIndices([]))
       .finally(() => setLoading(false));
   }, []);
 
@@ -116,7 +117,9 @@ export function EtfSignalCards() {
   if (!cards.length) {
     return (
       <div className="bg-card rounded-xl border border-border p-6 text-center">
-        <p className="text-sm text-muted-foreground">ETF 신호 데이터가 없습니다.</p>
+        <p className="text-sm text-muted-foreground">
+          ETF 신호 데이터가 없습니다 — GitHub Actions 실행 후 업데이트됩니다
+        </p>
       </div>
     );
   }

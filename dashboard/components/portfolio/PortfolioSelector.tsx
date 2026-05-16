@@ -12,11 +12,10 @@ interface Props {
   selectedId:  string | null;
   onSelect:    (id: string) => void;
   onCreateNew: () => void;
-  onDelete?:   (id: string) => void;
 }
 
-export function PortfolioSelector({ portfolios, selectedId, onSelect, onCreateNew, onDelete }: Props) {
-  const [open,    setOpen]    = useState(false);
+export function PortfolioSelector({ portfolios, selectedId, onSelect, onCreateNew }: Props) {
+  const [open,     setOpen]     = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const selected = portfolios.find(p => p.id === selectedId);
 
@@ -26,12 +25,7 @@ export function PortfolioSelector({ portfolios, selectedId, onSelect, onCreateNe
     setDeleting(id);
     try {
       await deletePortfolio(id);
-      // 삭제된 것이 선택 중이면 다른 포트폴리오로 전환
-      if (selectedId === id) {
-        const other = portfolios.find(p => p.id !== id);
-        if (other) onSelect(other.id);
-      }
-      onDelete?.(id);  // 부모에 삭제 알림 → 목록 새로고침
+      // subscribeAllPortfolios가 목록을 자동 갱신하고 selectedId를 재조정함
     } finally {
       setDeleting(null);
       setOpen(false);

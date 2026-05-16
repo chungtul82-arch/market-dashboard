@@ -15,6 +15,8 @@ _INDEX_TICKERS = {
     "vix":     "^VIX",
     "usd_krw": "USDKRW=X",
     "cny_krw": "CNYKRW=X",
+    "wti":     "CL=F",
+    "us10y":   "^TNX",
 }
 
 
@@ -38,6 +40,8 @@ def get_market_indices() -> dict:
             }
             if key == "vix":
                 entry["label"] = "탐욕" if value < 15 else ("공포" if value >= 25 else "중립")
+            if key == "us10y":
+                entry["label"] = f"{value:.3f}%"
             result[key] = entry
         except Exception as exc:
             print(f"  [WARN] {ticker}: {exc} — 스킵")
@@ -210,3 +214,54 @@ def get_foreign_net_buy(sector_etfs: dict) -> dict | None:
     except Exception as e:
         print(f"  [WARN] 외국인 순매수 수집 실패 (스킵): {e}")
         return None
+
+
+# ── 거래량 상위 종목 (pykrx) ─────────────────────────────
+def get_top_volume(n: int = 30) -> list[dict]:
+    """KOSPI + KOSDAQ 합산 거래대금 상위 n개 종목."""
+    try:
+        from pykrx import stock as pstock
+        today = datetime.now(KST)
+        td = today.strftime("%Y%m%d")
+
+        frames = []
+        for market in ["KOSPI", "KOSDAQ"]:
+            try:
+                df = pstock.get_market_ohlcv_by_ticker(td, market)
+                if df is None or df.empty:
+                    continue
+                df["market"] = market
+                frames.append(df)
+            except Exception as e:
+                print(f"  [WARN] {market} 거래량 조회 실패: {e}")
+
+        if not frames:
+            return []
+
+        combined = pd.concat(frames)
+        # 거래대금 기준 정렬 (없으면 거래량)
+        sort_col = "거래대금" if "거래대금" in combined.columns else "거래량"
+        combined = combined[combined[sort_col] > 0]
+        top = combined.nlargest(n, sort_col)
+
+        out = []
+        for ticker, row in top.iterrows():
+            try:
+                name = pstock.get_market_ticker_name(str(ticker))
+            except Exception:
+                name = str(ticker)
+            out.append({
+                "ticker":      str(ticker),
+                "name":        name,
+                "market":      row["market"],
+                "close":       int(row.get("종가", 0)),
+                "change_pct":  round(float(row.get("등락률", 0)), 2),
+                "volume":      int(row.get("거래량", 0)),
+                "trade_value": int(row.get("거래대금", 0)),
+            })
+
+        print(f"  [OK] 거래량 상위 {len(out)}개 수집")
+        return out
+    except Exception as e:
+        print(f"  [WARN] 거래량 상위 수집 실패: {e}")
+        return []

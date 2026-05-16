@@ -31,6 +31,7 @@ def build_report_data(
     signals: list[dict],
     foreign_data: dict | None = None,
     market_indices: dict | None = None,
+    top_volume: list[dict] | None = None,
 ) -> dict:
     """분석 결과 → Firestore 업로드용 dict."""
     today = datetime.now(KST).strftime("%Y-%m-%d")
@@ -71,7 +72,8 @@ def build_report_data(
             {"sector": s["sector"], "signal": s["signal"], "value": _safe_float(s["value"])}
             for s in signals
         ],
-        "summary": summary,
+        "summary":     summary,
+        "top_volume":  top_volume or [],
     }
 
 

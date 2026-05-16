@@ -83,8 +83,9 @@ export function IndexTrendChart() {
     getDoc(doc(db, 'index-trends', 'latest'))
       .then(snap => {
         if (snap.exists()) setIndices(snap.data().indices ?? []);
+        else setIndices([]);
       })
-      .catch(() => {})
+      .catch(() => setIndices([]))
       .finally(() => setLoading(false));
   }, []);
 

@@ -13,7 +13,7 @@ import argparse
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import SECTOR_SOURCES, SECTOR_ETFS
-from collector import get_sector_data, get_foreign_net_buy, get_market_indices
+from collector import get_sector_data, get_foreign_net_buy, get_market_indices, get_top_volume
 from analyzer import calc_returns, calc_relative_strength, detect_rotation_signal
 from firebase_uploader import build_report_data, upload_report, _init as firebase_init
 from firebase_admin import firestore
@@ -58,18 +58,22 @@ def run_screener_only() -> None:
 def run() -> None:
     print("=== 섹터 히트맵 파이프라인 시작 ===")
     try:
-        print("[1/5] 시장 지수 수집 중...")
+        print("[1/6] 시장 지수 수집 중 (WTI·미국10년물 포함)...")
         indices = get_market_indices()
         print(f"      수집: {list(indices.keys())}")
 
-        print("[2/5] 섹터 데이터 수집 중 (KRX 인덱스 + 대표 ETF)...")
+        print("[2/6] 거래량 상위 30 수집 중...")
+        top_vol = get_top_volume(30)
+        print(f"      {len(top_vol)}개 종목")
+
+        print("[3/6] 섹터 데이터 수집 중 (KRX 인덱스 + 대표 ETF)...")
         price_df = get_sector_data(SECTOR_SOURCES)
         print(f"      {len(price_df.columns)}개 섹터, {len(price_df)}일치")
 
-        print("[3/5] 외국인 순매수 수집 중 (ETF 기반 섹터만)...")
+        print("[4/6] 외국인 순매수 수집 중 (ETF 기반 섹터만)...")
         foreign = get_foreign_net_buy(SECTOR_ETFS)
 
-        print("[4/5] 수익률·상대강도 계산 중...")
+        print("[5/6] 수익률·상대강도 계산 중...")
         returns_df = calc_returns(price_df)
         rs_df      = calc_relative_strength(returns_df)
 
@@ -85,8 +89,13 @@ def run() -> None:
         signals = detect_rotation_signal(rs_df, prev_rs_df)
         print(f"      신호 {len(signals)}건 감지")
 
-        print("[5/5] Firebase 업로드 + 텔레그램 발송...")
-        report_data = build_report_data(rs_df, signals, foreign_data=foreign, market_indices=indices)
+        print("[6/6] Firebase 업로드 + 텔레그램 발송...")
+        report_data = build_report_data(
+            rs_df, signals,
+            foreign_data=foreign,
+            market_indices=indices,
+            top_volume=top_vol,
+        )
         if not upload_report(report_data):
             raise RuntimeError("Firebase 업로드 실패")
 
