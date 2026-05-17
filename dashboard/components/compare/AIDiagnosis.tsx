@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Loader2, Zap, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { Portfolio } from '@/types';
 
 interface GuruComp {
   guru: string; alignment_score: number; common_themes: string[];
@@ -41,6 +42,7 @@ interface Props {
   guruPortfolios: Record<string, unknown> | null;
   moneyFlow:      Record<string, unknown> | null;
   articles:       unknown[];
+  myPortfolio:    Portfolio | null;
   onDiagnose:     (result: DiagnosisResult) => void;
   diagnosis:      DiagnosisResult | null;
   lastUpdated:    string;
@@ -64,29 +66,29 @@ const ACTION_COLOR: Record<string, string> = {
   '유지': 'text-muted-foreground', '축소': 'text-yellow-400', '제외': 'text-red-400',
 };
 
-export function AIDiagnosis({ guruPortfolios, moneyFlow, articles, onDiagnose, diagnosis, lastUpdated }: Props) {
+const TIMEOUT_MS = 55_000; // 55초 (Vercel Pro 60초 제한)
+
+export function AIDiagnosis({ guruPortfolios, moneyFlow, articles, myPortfolio, onDiagnose, diagnosis, lastUpdated }: Props) {
   const [loading, setLoading] = useState(false);
   const [step,    setStep]    = useState('');
   const [error,   setError]   = useState('');
 
   async function runDiagnosis() {
+    if (!myPortfolio) {
+      setError('비교할 포트폴리오를 먼저 선택해 주세요.');
+      return;
+    }
     setLoading(true); setError('');
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
     try {
-      setStep('내 포트폴리오 로드 중...');
-      const portfolioSnap = await getDocs(collection(db, 'portfolios'));
-      const myPortfolio   = portfolioSnap.empty ? null : portfolioSnap.docs[0].data();
-
-      setStep('거장 포트폴리오 분석 중...');
-      await new Promise(r => setTimeout(r, 400));
-
-      setStep('돈흐름 비교 중...');
-      await new Promise(r => setTimeout(r, 400));
-
-      setStep('뉴스 영향 분석 중...');
+      setStep('Claude AI 분석 중... (최대 60초)');
       const res = await fetch('/api/ai-diagnosis', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal:  controller.signal,
         body: JSON.stringify({
           myPortfolio,
           guruPortfolios,
@@ -94,16 +96,35 @@ export function AIDiagnosis({ guruPortfolios, moneyFlow, articles, onDiagnose, d
           news: articles,
         }),
       });
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || `API 오류 ${res.status}`);
+        let msg = `오류 ${res.status}`;
+        try { msg = (await res.json()).error || msg; } catch { /* ignore */ }
+        throw new Error(msg);
       }
+
       const { diagnosis: result } = await res.json();
-      onDiagnose(result);
+
+      // 결과를 Firebase에 저장 (클라이언트)
+      const kst  = new Date(Date.now() + 9 * 3600_000);
+      const date = kst.toISOString().slice(0, 10);
+      const time = kst.toISOString().slice(11, 16);
+      const saved = { ...result, date, time, created_at: kst.toISOString() };
+      await Promise.all([
+        setDoc(doc(db, 'ai-diagnosis', 'latest'), saved),
+        setDoc(doc(db, 'ai-diagnosis', `${date}_${time.replace(':', '-')}`), saved),
+      ]);
+
+      onDiagnose(saved);
       setStep('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '진단 실패');
+      if (e instanceof Error && e.name === 'AbortError') {
+        setError('시간 초과 (55초). Vercel Pro 플랜이 필요하거나, GitHub Actions 주간 자동 진단을 이용해 주세요.');
+      } else {
+        setError(e instanceof Error ? e.message : '진단 실패');
+      }
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   }
