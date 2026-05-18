@@ -33,6 +33,28 @@ async function fetchKRXPrice(symbol: string, market?: string) {
   return null;
 }
 
+async function fetchUSPrice(symbol: string) {
+  try {
+    const r = await fetch(
+      `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d`,
+      { headers: H, next: { revalidate: 300 } },
+    );
+    if (!r.ok) return null;
+    const d    = await r.json();
+    const meta = d?.chart?.result?.[0]?.meta ?? {};
+    const price = meta.regularMarketPrice ?? 0;
+    if (!price) return null;
+    const prev = meta.previousClose ?? meta.chartPreviousClose ?? price;
+    return {
+      price:     Math.round(price * 100) / 100,  // USD, 소수점 2자리
+      changePct: prev ? Math.round(((price - prev) / prev) * 10000) / 100 : 0,
+      name:      meta.shortName || meta.longName || symbol,
+      market:    'US' as const,
+      currency:  'USD' as const,
+    };
+  } catch { return null; }
+}
+
 async function fetchHistory(yfsym: string) {
   try {
     const r = await fetch(
@@ -64,15 +86,27 @@ export async function POST(request: Request) {
 
   const [priceResults, kospi, nasdaq100] = await Promise.all([
     Promise.allSettled(
-      (symbols as string[]).map(s =>
-        fetchKRXPrice(s, (markets as Record<string, string>)[s]).then(d => [s, d] as const),
-      ),
+      (symbols as string[]).map(async s => {
+        const mkt = (markets as Record<string, string>)[s];
+        // 미국 주식: market이 'US'이거나, 심볼이 순수 알파벳(숫자 없음)
+        const isUS = mkt === 'US' || (!/\d/.test(s) && /^[A-Z]{1,5}$/.test(s));
+        if (isUS) {
+          const d = await fetchUSPrice(s);
+          if (d) return [s, d] as const;
+        }
+        const d = await fetchKRXPrice(s, mkt).then(async r => {
+          if (r) return r;
+          // KRX 실패 시 US 폴백
+          return fetchUSPrice(s);
+        });
+        return [s, d] as const;
+      }),
     ),
     fetchHistory('^KS11'),
     fetchHistory('^NDX'),
   ]);
 
-  const prices: Record<string, NonNullable<Awaited<ReturnType<typeof fetchKRXPrice>>>> = {};
+  const prices: Record<string, unknown> = {};
   priceResults.forEach(r => {
     if (r.status === 'fulfilled' && r.value[1]) prices[r.value[0]] = r.value[1];
   });

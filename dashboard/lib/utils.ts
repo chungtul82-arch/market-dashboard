@@ -35,6 +35,7 @@ export function fmt(value: number, digits = 1): string {
 }
 
 export function fmtNumber(v: number, digits = 2): string {
+  if (!isFinite(v)) return '—';
   return v.toLocaleString('ko-KR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 

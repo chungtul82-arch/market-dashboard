@@ -9,7 +9,7 @@ import requests
 
 KST = timezone(__import__('datetime').timedelta(hours=9))
 
-HEADERS = {"User-Agent": "MarketDashboard contact@example.com", "Accept-Encoding": "gzip, deflate"}
+HEADERS = {"User-Agent": "MarketDashboard chungtul82@gmail.com", "Accept-Encoding": "gzip, deflate"}
 
 GURUS = {
     "워런 버핏 (버크셔)":       "0001067983",

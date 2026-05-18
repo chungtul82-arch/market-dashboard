@@ -65,7 +65,7 @@ export interface Holding {
   name?: string;
   sector?: string;
   theme?: string;
-  market?: 'KOSPI' | 'KOSDAQ';
+  market?: 'KOSPI' | 'KOSDAQ' | 'US';
   country?: string;
   currency?: 'KRW' | 'USD' | 'RMB';
   currentPrice: number;

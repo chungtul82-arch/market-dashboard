@@ -62,10 +62,18 @@ def _fetch_index(ticker: str, market: str, fromdate: str, todate: str) -> pd.Ser
         from pykrx import stock as pstock
         df = pstock.get_index_ohlcv_by_date(fromdate, todate, ticker, market)
         if df is None or df.empty:
+            print(f"    [WARN] {ticker}({market}): 빈 DataFrame")
             return None
+        print(f"    [DEBUG] {ticker}({market}): columns={list(df.columns)[:5]}, rows={len(df)}")
         close_col = next((c for c in df.columns if c in ("종가", "Close")), None)
         if close_col is None:
-            return None
+            # 첫번째 숫자형 컬럼 시도
+            num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+            if num_cols:
+                close_col = num_cols[0]
+                print(f"    [FALLBACK] {ticker}: 종가 컬럼 폴백: {close_col}")
+            else:
+                return None
         return df[close_col].astype(float)
     except Exception as e:
         print(f"    [WARN] {ticker}({market}): {e}")
@@ -115,7 +123,7 @@ def calc_etf_signal(name: str, idx: dict, kospi_ret: dict, sector_rs: dict) -> s
 def collect_index_data(db=None) -> list[dict]:
     today = datetime.now(KST)
     todate   = today.strftime("%Y%m%d")
-    fromdate = (today - timedelta(days=365)).strftime("%Y%m%d")
+    fromdate = (today - timedelta(days=180)).strftime("%Y%m%d")
 
     # 섹터 RS 로드 (있으면)
     sector_rs: dict[str, float] = {}

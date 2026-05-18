@@ -21,14 +21,20 @@ export const ALL_SECTORS = [
   'AI·반도체', '소부장', '전력·전기', '원자력', '방산', '중공업·조선',
   '재건·인프라', '바이오', '2차전지', '로봇·자동화', '게임·엔터', 'K-뷰티',
   '자동차·모빌리티', '증권·금융', '철강·금속', '화학', '헬스케어·의료',
-  '음식료', '유통·소비재', '수소·친환경', '통신', '기타',
+  '음식료', '유통·소비재', '수소·친환경', '통신', '원자재', '기타',
 ];
 
 
 function fmtKRW(v: number) {
+  if (!isFinite(v)) return '—';
   if (Math.abs(v) >= 1e8) return `${(v / 1e8).toFixed(2)}억`;
   if (Math.abs(v) >= 1e4) return `${(v / 1e4).toFixed(0)}만`;
   return fmtNumber(v, 0);
+}
+
+function fmtUSD(v: number) {
+  if (!isFinite(v)) return '—';
+  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function Pct({ v }: { v: number }) {
@@ -108,6 +114,7 @@ export function PortfolioTable({ holdings, onUpdateHolding, onBulkDelete, onRefr
   const [editing,   setEditing]   = useState<Holding | null>(null);
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
   const [deleting,  setDeleting]  = useState(false);
+  const [currencyMode, setCurrencyMode] = useState<'KRW' | 'USD'>('KRW');
 
   function toggleAll() {
     setSelected(prev => prev.size === sorted.length ? new Set() : new Set(sorted.map(h => h.symbol)));
@@ -154,6 +161,21 @@ export function PortfolioTable({ holdings, onUpdateHolding, onBulkDelete, onRefr
             )}
           </div>
           <div className="flex items-center gap-3">
+            {/* 통화 토글 */}
+            <div className="flex items-center rounded-lg border border-border overflow-hidden text-xs">
+              <button
+                onClick={() => setCurrencyMode('KRW')}
+                className={cn('px-2.5 py-1 transition-colors', currencyMode === 'KRW' ? 'bg-[#6366f1] text-white' : 'text-muted-foreground hover:bg-muted')}
+              >
+                ₩ 원화
+              </button>
+              <button
+                onClick={() => setCurrencyMode('USD')}
+                className={cn('px-2.5 py-1 transition-colors', currencyMode === 'USD' ? 'bg-[#6366f1] text-white' : 'text-muted-foreground hover:bg-muted')}
+              >
+                $ 달러
+              </button>
+            </div>
             {pricesUpdatedAt && (
               <span className="text-xs text-muted-foreground/50">가격 {pricesUpdatedAt}</span>
             )}
@@ -200,6 +222,7 @@ export function PortfolioTable({ holdings, onUpdateHolding, onBulkDelete, onRefr
           <tbody>
             {sorted.map(h => {
               const weight = totalVal > 0 ? (h.currentValue / totalVal) * 100 : 0;
+              const isUSD = h.market === 'US' || h.currency === 'USD';
               return (
                 <tr key={h.symbol} className={cn('border-t border-border hover:bg-muted/20 transition-colors', selected.has(h.symbol) && 'bg-[#6366f1]/5')}>
 
@@ -245,7 +268,11 @@ export function PortfolioTable({ holdings, onUpdateHolding, onBulkDelete, onRefr
 
                   {/* 현재가 */}
                   <td className="py-2 px-3 text-right">
-                    <p className="font-num text-sm">₩{fmtNumber(h.currentPrice, 0)}</p>
+                    <p className="font-num text-sm">
+                      {isUSD
+                        ? fmtUSD(h.currentPrice)
+                        : `₩${fmtNumber(h.currentPrice, 0)}`}
+                    </p>
                     {h.dailyChangePct !== 0 && (
                       <p className={cn('text-xs font-num', h.dailyChangePct >= 0 ? 'text-up' : 'text-down')}>
                         {h.dailyChangePct >= 0 ? '+' : ''}{h.dailyChangePct.toFixed(2)}%
@@ -255,15 +282,26 @@ export function PortfolioTable({ holdings, onUpdateHolding, onBulkDelete, onRefr
 
                   {/* 매입가 */}
                   <td className="py-2 px-3 text-right">
-                    <p className="font-num text-sm text-muted-foreground">₩{fmtNumber(h.avgPurchasePrice, 0)}</p>
+                    <p className="font-num text-sm text-muted-foreground">
+                      {isUSD
+                        ? fmtUSD(h.avgPurchasePrice)
+                        : `₩${fmtNumber(h.avgPurchasePrice, 0)}`}
+                    </p>
                   </td>
 
                   <td className="py-2 px-3 text-right font-num">{fmtNumber(h.quantity, 0)}</td>
-                  <td className="py-2 px-3 text-right font-num">{fmtKRW(h.currentValue)}</td>
+                  <td className="py-2 px-3 text-right font-num">
+                    {isUSD && currencyMode === 'USD'
+                      ? fmtUSD(h.currentPrice * h.quantity)
+                      : fmtKRW(h.currentValue)}
+                  </td>
                   <td className="py-2 px-3 text-right"><Pct v={h.returnPct} /></td>
                   <td className="py-2 px-3 text-right">
                     <span className={cn('font-num text-sm', h.pnl >= 0 ? 'text-up' : 'text-down')}>
-                      {h.pnl >= 0 ? '+' : ''}{fmtKRW(h.pnl)}
+                      {h.pnl >= 0 ? '+' : ''}
+                      {isUSD && currencyMode === 'USD'
+                        ? fmtUSD((h.currentPrice - h.avgPurchasePrice) * h.quantity)
+                        : fmtKRW(h.pnl)}
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right"><Pct v={h.dailyChangePct} /></td>
